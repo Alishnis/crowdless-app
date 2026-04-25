@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import type { BusOccupancy } from '../types/bus.types'
 import { MOCK_BUS } from '../services/mockData'
@@ -7,14 +7,30 @@ import type { City } from '../services/cities'
 import BusMap from '../components/map/BusMap'
 import BusInfoPanel from '../components/map/BusInfoPanel'
 import CitySelector from '../components/map/CitySelector'
-
-const BUSES: BusOccupancy[] = [MOCK_BUS]
+import { useYoloAnalysis } from '../hooks/useYoloAnalysis'
 
 const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1]
 
 export default function MonitorPage() {
   const [selectedBus,  setSelectedBus]  = useState<BusOccupancy>(MOCK_BUS)
   const [selectedCity, setSelectedCity] = useState<City>(DEFAULT_CITY)
+  const [buses, setBuses] = useState<BusOccupancy[]>([MOCK_BUS])
+
+  const yolo = useYoloAnalysis()
+
+  // Sync YOLO count → bus state so map marker colour updates too
+  useEffect(() => {
+    if (!yolo.connected) return
+    const updated: BusOccupancy = {
+      ...MOCK_BUS,
+      count:      yolo.count,
+      capacity:   yolo.capacity,
+      percentage: yolo.percentage,
+      updatedAt:  new Date().toISOString(),
+    }
+    setBuses([updated])
+    setSelectedBus(prev => ({ ...prev, ...updated }))
+  }, [yolo.count, yolo.percentage, yolo.connected])
 
   return (
     <motion.div
@@ -26,7 +42,7 @@ export default function MonitorPage() {
       {/* ── Map area ──────────────────────────────────────────────────── */}
       <div className="flex-1 h-[55vh] md:h-full relative overflow-hidden">
         <BusMap
-          buses={BUSES}
+          buses={buses}
           onBusSelect={setSelectedBus}
           selectedBusId={selectedBus.busId}
           selectedCity={selectedCity}
@@ -54,7 +70,7 @@ export default function MonitorPage() {
       </div>
 
       {/* ── Info panel ────────────────────────────────────────────────── */}
-      <BusInfoPanel bus={selectedBus} />
+      <BusInfoPanel bus={selectedBus} yolo={yolo} />
     </motion.div>
   )
 }
