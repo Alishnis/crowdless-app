@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+/* ─── Design Tokens ──────────────────────────────────────────────────────────
+   All colors become Tailwind utilities automatically in v4:
+   --color-accent → bg-accent, text-accent, border-accent, bg-accent/30, etc.
+──────────────────────────────────────────────────────────────────────────── */
+@theme {
+  --color-background: #FAFAFA;
+  --color-foreground: #0F172A;
+  --color-muted:      #F1F5F9;
+  --color-muted-foreground: #64748B;
+  --color-accent:           #0052FF;
+  --color-accent-secondary: #4D7CFF;
+  --color-border: #E2E8F0;
+  --color-card:   #FFFFFF;
+
+  --font-display: "Calistoga", Georgia, serif;
+  --font-sans:    "Inter", system-ui, sans-serif;
+  --font-mono:    "JetBrains Mono", monospace;
+}
+
+/* ─── Base ───────────────────────────────────────────────────────────────── */
+body {
+  font-family: var(--font-sans);
+  background: var(--color-background);
+  color: var(--color-foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Signature utilities ────────────────────────────────────────────────── */
+@utility gradient-text {
+  background: linear-gradient(135deg, #0052FF, #4D7CFF);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility gradient-bg {
+  background: linear-gradient(135deg, #0052FF, #4D7CFF);
+}
+
+@utility shadow-accent {
+  box-shadow: 0 4px 14px rgba(0, 82, 255, 0.25);
+}
+
+@utility shadow-accent-lg {
+  box-shadow: 0 8px 24px rgba(0, 82, 255, 0.35);
+}
