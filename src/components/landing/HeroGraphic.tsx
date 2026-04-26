@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { Users, MapPin, Zap, Camera } from 'lucide-react'
+import Planet3D from './Planet3D'
 
 const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1]
 
@@ -52,6 +53,21 @@ export default function HeroGraphic() {
         ))}
       </div>
 
+      {/* 3D Planet centered in sphere */}
+      <div
+        className="absolute pointer-events-none opacity-90"
+        style={{
+          width: 224,
+          height: 224,
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 0,
+        }}
+      >
+        <Planet3D />
+      </div>
+
       {/* Outer rotating ring */}
       <motion.div
         className="absolute inset-4 rounded-full border-2 border-dashed border-accent/20 pointer-events-none"
@@ -67,9 +83,8 @@ export default function HeroGraphic() {
       />
 
       {/* ── Main dashboard card ────────────────────────────────────────────── */}
+      <div className="absolute" style={{ top: '70%', left: '72%', transform: 'translate(-50%, -50%) scale(0.65)', transformOrigin: 'center center', width: 200 }}>
       <motion.div
-        className="absolute"
-        style={{ top: '50%', left: '50%', width: 200, transform: 'translate(-50%, -50%)' }}
         animate={{ y: [0, -10, 0] }}
         transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
       >
@@ -104,6 +119,7 @@ export default function HeroGraphic() {
           </div>
         </div>
       </motion.div>
+      </div>
 
       {/* ── Floating chips ─────────────────────────────────────────────────── */}
       <FloatingChip
