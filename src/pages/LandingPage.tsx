@@ -12,7 +12,7 @@ export default function LandingPage() {
       </main>
       <footer className="bg-foreground border-t border-white/10 py-8 text-center">
         <p className="font-mono text-xs text-white/35 tracking-widest uppercase">
-          CrowdLess © 2025 · Хакатон MVP · Powered by YOLOv8
+          CrowdLess © 2025 · Powered by YOLOv11
         </p>
       </footer>
     </div>

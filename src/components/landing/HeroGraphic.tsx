@@ -131,7 +131,7 @@ export default function HeroGraphic() {
       <FloatingChip
         icon={<Camera size={12} className="text-white" />}
         iconBg="bg-gradient-to-br from-violet-500 to-purple-600"
-        label="YOLOv8"
+        label="YOLOv11"
         sub="AI активен"
         className="top-[22%] left-[7%]"
         yAnim={[0, -6, 0]}

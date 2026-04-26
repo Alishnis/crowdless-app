@@ -28,17 +28,17 @@ export default function HeroSection() {
         style={{ background: 'radial-gradient(circle, rgba(0,82,255,0.055) 0%, transparent 65%)' }}
       />
 
-      <div className="relative max-w-6xl mx-auto w-full px-6 py-36 grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-12 xl:gap-20 items-center">
+      <div className="relative max-w-6xl mx-auto w-full px-6 py-20 md:py-28 grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-12 xl:gap-20 items-center">
 
         {/* ── Left: copy ────────────────────────────────────────────────── */}
         <motion.div variants={stagger} initial="hidden" animate="visible">
-          <motion.div variants={fadeUp} className="mb-8">
-            <SectionLabel pulse>Live · YOLOv8 · Хакатон 2025</SectionLabel>
+          <motion.div variants={fadeUp} className="mb-7">
+            <SectionLabel pulse>Live · YOLOv11</SectionLabel>
           </motion.div>
 
           <motion.h1
             variants={fadeUp}
-            className="font-display text-[2.75rem] md:text-[3.5rem] xl:text-[4.25rem] leading-[1.05] tracking-[-0.02em] text-foreground mb-6"
+            className="font-display text-[2.4rem] md:text-[3rem] xl:text-[3.6rem] leading-[1.05] tracking-[-0.02em] text-foreground mb-6"
           >
             Умный мониторинг
             <br />
@@ -49,9 +49,9 @@ export default function HeroSection() {
 
           <motion.p
             variants={fadeUp}
-            className="text-base md:text-lg text-muted-foreground leading-[1.7] max-w-lg mb-10"
+            className="text-base md:text-lg text-muted-foreground leading-[1.7] max-w-lg mb-9"
           >
-            YOLOv8 анализирует видеопоток с камер в реальном времени.
+            YOLOv11 анализирует видеопоток с камер в реальном времени.
             Один понятный показатель — процент заполненности всего салона.
             Без лиц, без сложных графиков.
           </motion.p>
