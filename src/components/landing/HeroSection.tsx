@@ -51,9 +51,9 @@ export default function HeroSection() {
             variants={fadeUp}
             className="text-base md:text-lg text-muted-foreground leading-[1.7] max-w-lg mb-9"
           >
-            YOLOv11 анализирует видеопоток с камер в реальном времени.
-            Один понятный показатель — процент заполненности всего салона.
-            Без лиц, без сложных графиков.
+            Система компьютерного зрения на базе YOLOv11 анализирует
+            видеопоток с бортовых камер и формирует показатель заполненности
+            в режиме реального времени. Без биометрических данных.
           </motion.p>
 
           <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-4">
@@ -61,7 +61,7 @@ export default function HeroSection() {
               onClick={() => navigate('/monitor')}
               className="group inline-flex items-center justify-center gap-2 gradient-bg text-white font-semibold px-7 py-3.5 rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-accent-lg active:scale-[0.98]"
             >
-              Открыть монитор
+              Перейти к мониторингу
               <ArrowRight
                 size={16}
                 className="transition-transform duration-200 group-hover:translate-x-1"
@@ -72,7 +72,7 @@ export default function HeroSection() {
               <div className="w-6 h-6 rounded-full gradient-bg flex items-center justify-center shrink-0">
                 <Play size={10} className="text-white ml-0.5" />
               </div>
-              Как это работает
+              Принцип работы
             </button>
           </motion.div>
         </motion.div>

@@ -30,14 +30,14 @@ body {
 
 /* ─── Signature utilities ────────────────────────────────────────────────── */
 @utility gradient-text {
-  background: linear-gradient(135deg, #0052FF, #4D7CFF);
+  background: linear-gradient(135deg, #7BB8FF 0%, #2B6FFF 55%, #0041CC 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
 @utility gradient-bg {
-  background: linear-gradient(135deg, #0052FF, #4D7CFF);
+  background: linear-gradient(135deg, #7BB8FF, #0052FF);
 }
 
 @utility shadow-accent {
@@ -47,3 +47,4 @@ body {
 @utility shadow-accent-lg {
   box-shadow: 0 8px 24px rgba(0, 82, 255, 0.35);
 }
+
