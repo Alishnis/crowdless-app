@@ -3,37 +3,38 @@ import type { Variants } from 'framer-motion'
 import { Camera, Users, MapPin, Gauge, Shield, Zap } from 'lucide-react'
 import FeatureCard from './FeatureCard'
 import SectionLabel from '../ui/SectionLabel'
+import { useT } from '../../i18n'
 
 const features = [
   {
     icon: Camera,
-    title: 'Обработка данных в реальном времени',
-    description: 'Нейронная сеть YOLOv11 обрабатывает видеокадры с минимальной задержкой, обеспечивая актуальность данных.',
+    title: 'features.1.title',
+    description: 'features.1.desc',
   },
   {
     icon: Users,
-    title: 'Подсчёт пассажиров',
-    description: 'Единая бортовая камера обеспечивает охват всего салона транспортного средства без слепых зон.',
+    title: 'features.2.title',
+    description: 'features.2.desc',
   },
   {
     icon: MapPin,
-    title: 'Геопозиционирование транспорта',
-    description: 'Положение транспортного средства на маршруте обновляется каждые 7 секунд.',
+    title: 'features.3.title',
+    description: 'features.3.desc',
   },
   {
     icon: Gauge,
-    title: 'Индикатор загруженности',
-    description: 'Единый процентный показатель предоставляет операторам всю необходимую информацию о состоянии рейса.',
+    title: 'features.4.title',
+    description: 'features.4.desc',
   },
   {
     icon: Shield,
-    title: 'Соответствие требованиям конфиденциальности',
-    description: 'Система фиксирует только количественные показатели. Биометрические и персональные данные не обрабатываются.',
+    title: 'features.5.title',
+    description: 'features.5.desc',
   },
   {
     icon: Zap,
-    title: 'Высокая скорость передачи данных',
-    description: 'Время от получения видеокадра до отображения результата на панели управления — менее одной минуты.',
+    title: 'features.6.title',
+    description: 'features.6.desc',
   },
 ]
 
@@ -48,6 +49,7 @@ const item: Variants = {
 }
 
 export default function FeaturesSection() {
+  const t = useT()
   return (
     <section id="features" className="relative bg-foreground py-28 px-6 overflow-hidden">
       {/* Dot-pattern texture — gives depth to the flat dark bg */}
@@ -81,15 +83,14 @@ export default function FeaturesSection() {
           transition={{ duration: 0.6 }}
         >
           <div className="flex justify-center mb-6">
-            <SectionLabel inverted>Функциональность</SectionLabel>
+            <SectionLabel inverted>{t('features.label')}</SectionLabel>
           </div>
           <h2 className="font-display text-[2rem] md:text-[2.75rem] text-white leading-[1.12] tracking-tight mb-4">
-            Ключевые возможности{' '}
-            <span className="gradient-text">платформы мониторинга</span>
+            {t('features.title1')}{' '}
+            <span className="gradient-text">{t('features.title2')}</span>
           </h2>
           <p className="text-white/45 text-base max-w-xl mx-auto leading-relaxed">
-            Шесть функциональных модулей CrowdLess для управления
-            загруженностью городского пассажирского транспорта
+            {t('features.lead')}
           </p>
         </motion.div>
 
@@ -103,7 +104,7 @@ export default function FeaturesSection() {
         >
           {features.map((f) => (
             <motion.div key={f.title} variants={item}>
-              <FeatureCard icon={f.icon} title={f.title} description={f.description} />
+              <FeatureCard icon={f.icon} title={t(f.title)} description={t(f.description)} />
             </motion.div>
           ))}
         </motion.div>

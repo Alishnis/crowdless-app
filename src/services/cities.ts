@@ -23,4 +23,4 @@ export const KZ_CITIES: City[] = [
   { name: 'Ақтау',      lat: 43.6500, lng: 51.2000, zoom: 15 },
 ]
 
-export const DEFAULT_CITY = KZ_CITIES[0]
+export const DEFAULT_CITY = KZ_CITIES.find(c => c.name === 'Қызылорда') ?? KZ_CITIES[0]

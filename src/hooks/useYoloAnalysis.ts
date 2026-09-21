@@ -6,7 +6,8 @@ export interface YoloFrame {
   percentage: number
   status: 'low' | 'medium' | 'high'
   imageB64: string
-  filename: string
+  inCount: number
+  outCount: number
 }
 
 export interface YoloState extends YoloFrame {
@@ -15,17 +16,18 @@ export interface YoloState extends YoloFrame {
 }
 
 const BACKEND = 'http://localhost:8000'
-const POLL_MS  = 5_000
+const POLL_MS  = 3_000
 
 const INITIAL: YoloState = {
   count: 0, capacity: 50, percentage: 0,
-  status: 'low', imageB64: '', filename: '',
+  status: 'low', imageB64: '',
+  inCount: 0, outCount: 0,
   loading: true, connected: false,
 }
 
 export function useYoloAnalysis(): YoloState {
   const [state, setState] = useState<YoloState>(INITIAL)
-  const timer = useRef<ReturnType<typeof setInterval>>()
+  const timer = useRef<ReturnType<typeof setInterval>>(undefined)
 
   const poll = useCallback(async () => {
     try {
@@ -38,7 +40,8 @@ export function useYoloAnalysis(): YoloState {
         percentage: d.percentage,
         status:     d.status,
         imageB64:   d.image_b64,
-        filename:   d.filename,
+        inCount:    d.in_count  ?? 0,
+        outCount:   d.out_count ?? 0,
         loading:    false,
         connected:  true,
       })

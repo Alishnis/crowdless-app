@@ -1,11 +1,12 @@
 import { motion } from 'framer-motion'
 import type { Variants } from 'framer-motion'
+import { useT } from '../../i18n'
 
-const stats = [
-  { value: '< 1', unit: 'мин', label: 'от кадра до отображения' },
-  { value: '7',   unit: 'сек', label: 'интервал обновления позиции' },
-  { value: '100', unit: '%',   label: 'защита персональных данных' },
-  { value: '24/7', unit: '',   label: 'непрерывная работа системы' },
+const stats: { value: string; unit: string; label: string; rawUnit?: string }[] = [
+  { value: '< 1', unit: 'stats.1.unit', label: 'stats.1.label' },
+  { value: '7',   unit: 'stats.2.unit', label: 'stats.2.label' },
+  { value: '100', unit: '', label: 'stats.3.label', rawUnit: '%' },
+  { value: '24/7', unit: '', label: 'stats.4.label' },
 ]
 
 const container: Variants = {
@@ -19,6 +20,8 @@ const item: Variants = {
 }
 
 export default function StatsSection() {
+  const t = useT()
+
   return (
     <section id="stats" className="py-20 px-6 border-y border-border">
       <div className="max-w-6xl mx-auto">
@@ -37,15 +40,17 @@ export default function StatsSection() {
             >
               <div className="font-mono font-bold leading-none gradient-text text-5xl lg:text-[3.75rem] tracking-tight tabular-nums">
                 {stat.value}
-                {stat.unit && (
-                  <span className="text-2xl lg:text-3xl ml-1 font-medium">{stat.unit}</span>
+                {(stat.unit || stat.rawUnit) && (
+                  <span className="text-2xl lg:text-3xl ml-1 font-medium">
+                    {stat.rawUnit ?? t(stat.unit)}
+                  </span>
                 )}
               </div>
 
               <div className="w-6 h-px bg-accent/35 mt-1" />
 
               <p className="text-xs font-mono uppercase tracking-[0.12em] text-muted-foreground leading-relaxed">
-                {stat.label}
+                {t(stat.label)}
               </p>
             </motion.div>
           ))}

@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { Users, MapPin, Zap, Camera } from 'lucide-react'
 import Planet3D from './Planet3D'
+import { useT } from '../../i18n'
 
 const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1]
 
@@ -38,6 +39,7 @@ function FloatingChip({ icon, iconBg, label, sub, className, yAnim, duration, de
 }
 
 export default function HeroGraphic() {
+  const t = useT()
   return (
     <div className="relative w-full max-w-[460px] aspect-square select-none">
       {/* Ambient glow */}
@@ -95,13 +97,13 @@ export default function HeroGraphic() {
               <span className="animate-ping absolute h-full w-full rounded-full bg-green-400 opacity-75" />
               <span className="relative h-2 w-2 rounded-full bg-green-400" />
             </span>
-            <span className="text-xs font-mono text-muted-foreground">37А · Онлайн</span>
+            <span className="text-xs font-mono text-muted-foreground">{t('hero.online')}</span>
           </div>
 
           {/* Percentage */}
           <div className="text-center mb-4">
             <span className="font-display text-[2.75rem] gradient-text leading-none">74%</span>
-            <p className="text-xs text-muted-foreground mt-1.5">48 из 65 мест</p>
+            <p className="text-xs text-muted-foreground mt-1.5">{t('hero.seats')}</p>
           </div>
 
           {/* Progress bar */}
@@ -114,7 +116,7 @@ export default function HeroGraphic() {
             />
           </div>
           <div className="flex justify-between mt-2">
-            <span className="text-[10px] text-muted-foreground">Заполнен</span>
+            <span className="text-[10px] text-muted-foreground">{t('hero.full')}</span>
             <span className="text-[10px] font-mono text-accent font-medium">74%</span>
           </div>
         </div>
@@ -125,8 +127,8 @@ export default function HeroGraphic() {
       <FloatingChip
         icon={<Users size={12} className="text-white" />}
         iconBg="gradient-bg"
-        label="48 чел"
-        sub="в салоне"
+        label={t('hero.people')}
+        sub={t('hero.inSaloon')}
         className="top-[15%] right-[8%]"
         yAnim={[0, -8, 0]}
         duration={4}
@@ -136,8 +138,8 @@ export default function HeroGraphic() {
       <FloatingChip
         icon={<MapPin size={12} className="text-white" />}
         iconBg="bg-gradient-to-br from-amber-400 to-orange-500"
-        label="ул. Абая"
-        sub="маршрут 37А"
+        label={t('hero.street')}
+        sub={t('hero.route')}
         className="bottom-[22%] left-[6%]"
         yAnim={[0, 9, 0]}
         duration={4.5}
@@ -148,7 +150,7 @@ export default function HeroGraphic() {
         icon={<Camera size={12} className="text-white" />}
         iconBg="bg-gradient-to-br from-violet-500 to-purple-600"
         label="YOLOv11"
-        sub="AI активен"
+        sub={t('hero.aiActive')}
         className="top-[22%] left-[7%]"
         yAnim={[0, -6, 0]}
         duration={5.5}
@@ -158,8 +160,8 @@ export default function HeroGraphic() {
       <FloatingChip
         icon={<Zap size={12} className="text-white" />}
         iconBg="bg-gradient-to-br from-emerald-400 to-green-500"
-        label="7 сек"
-        sub="обновление"
+        label={t('hero.sevenSec')}
+        sub={t('hero.refresh')}
         className="bottom-[18%] right-[7%]"
         yAnim={[0, 7, 0]}
         duration={4}

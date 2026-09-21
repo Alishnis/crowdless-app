@@ -4,6 +4,7 @@ import { ArrowRight, Play } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import SectionLabel from '../ui/SectionLabel'
 import HeroGraphic from './HeroGraphic'
+import { useT } from '../../i18n'
 
 const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1]
 
@@ -19,6 +20,7 @@ const fadeUp: Variants = {
 
 export default function HeroSection() {
   const navigate = useNavigate()
+  const t = useT()
 
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden">
@@ -33,27 +35,25 @@ export default function HeroSection() {
         {/* ── Left: copy ────────────────────────────────────────────────── */}
         <motion.div variants={stagger} initial="hidden" animate="visible">
           <motion.div variants={fadeUp} className="mb-7">
-            <SectionLabel pulse>Live · YOLOv11</SectionLabel>
+            <SectionLabel pulse>{t('hero.badge')}</SectionLabel>
           </motion.div>
 
           <motion.h1
             variants={fadeUp}
             className="font-display text-[2.4rem] md:text-[3rem] xl:text-[3.6rem] leading-[1.05] tracking-[-0.02em] text-foreground mb-6"
           >
-            Умный мониторинг
+            {t('hero.title1')}
             <br />
-            <span className="gradient-text">заполненности</span>
+            <span className="gradient-text">{t('hero.title2')}</span>
             <br />
-            автобусов — сейчас
+            {t('hero.title3')}
           </motion.h1>
 
           <motion.p
             variants={fadeUp}
             className="text-base md:text-lg text-muted-foreground leading-[1.7] max-w-lg mb-9"
           >
-            Система компьютерного зрения на базе YOLOv11 анализирует
-            видеопоток с бортовых камер и формирует показатель заполненности
-            в режиме реального времени. Без биометрических данных.
+            {t('hero.lead')}
           </motion.p>
 
           <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-4">
@@ -61,7 +61,7 @@ export default function HeroSection() {
               onClick={() => navigate('/monitor')}
               className="group inline-flex items-center justify-center gap-2 gradient-bg text-white font-semibold px-7 py-3.5 rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-accent-lg active:scale-[0.98]"
             >
-              Перейти к мониторингу
+              {t('hero.cta')}
               <ArrowRight
                 size={16}
                 className="transition-transform duration-200 group-hover:translate-x-1"
@@ -72,7 +72,7 @@ export default function HeroSection() {
               <div className="w-6 h-6 rounded-full gradient-bg flex items-center justify-center shrink-0">
                 <Play size={10} className="text-white ml-0.5" />
               </div>
-              Принцип работы
+              {t('hero.how')}
             </button>
           </motion.div>
         </motion.div>

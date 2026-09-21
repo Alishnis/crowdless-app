@@ -22,3 +22,27 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# ML artefacts — pretrained COCO weights auto-download via ultralytics and
+# training intermediates regenerate via backend/training/*, so neither is
+# committed. The two small fine-tuned deliverables in models/ ARE tracked
+# (~12MB total) — that's the actual research output of this project.
+*.pt
+!models/*.pt
+datasets/
+runs/
+__pycache__/
+*.pyc
+.venv/
+
+# Secrets — real API keys live here locally, never commit
+.env
+.env.local
+
+# Sample/training footage — vendor demo clips (licensing) + own screen
+# recordings (size, ~600MB total). See README "Data" section for how to
+# populate this locally; backend/main.py works with an empty test_data/.
+test_data/
+
+# Benchmark ground-truth is small and portable — keep it tracked
+!benchmarks/

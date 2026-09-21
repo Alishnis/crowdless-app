@@ -2,19 +2,25 @@ import { motion } from 'framer-motion'
 import { useState, useEffect, useRef } from 'react'
 import { Bus } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { useI18n } from '../../i18n'
+import LanguageSwitch from './LanguageSwitch'
 
 const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1]
 
 interface NavItem {
-  label: string
+  /** Dictionary key — resolved at render so the bar re-labels on language change. */
+  key: string
   path: string
   anchor?: string
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Главная',     path: '/'        },
-  { label: 'Возможности', path: '/', anchor: '#features' },
-  { label: 'Монитор',     path: '/monitor' },
+  { key: 'nav.home',     path: '/'        },
+  { key: 'nav.features', path: '/', anchor: '#features' },
+  { key: 'nav.monitor',  path: '/monitor' },
+  { key: 'nav.lab',      path: '/lab'     },
+  { key: 'ann.nav',      path: '/annotate' },
+  { key: 'nav.map',      path: '/map'     },
 ]
 
 const SECTION_IDS = ['features']
@@ -22,6 +28,7 @@ const SECTION_IDS = ['features']
 export default function Navbar() {
   const navigate  = useNavigate()
   const location  = useLocation()
+  const { t }     = useI18n()
   const [activeSection, setActiveSection] = useState('')
   const intersecting = useRef(new Set<string>())
 
@@ -85,7 +92,7 @@ export default function Navbar() {
       return location.pathname === '/' && activeSection === item.anchor.slice(1)
     }
     if (item.path === '/') {
-      // "Главная" is active when on home and no section is highlighted
+      // Home is active when on the landing page and no section is highlighted
       return location.pathname === '/' && activeSection === ''
     }
     return location.pathname === item.path
@@ -116,7 +123,7 @@ export default function Navbar() {
             const active = isActive(item)
             return (
               <button
-                key={item.label}
+                key={item.key}
                 onClick={() => handleNav(item)}
                 className={`relative px-4 py-2 rounded-lg text-sm transition-all duration-200 ${
                   active
@@ -124,7 +131,7 @@ export default function Navbar() {
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
                 }`}
               >
-                {item.label}
+                {t(item.key)}
 
                 {/* Animated underline indicator */}
                 {active && (
@@ -139,13 +146,16 @@ export default function Navbar() {
           })}
         </nav>
 
-        {/* CTA */}
-        <button
-          onClick={() => navigate('/monitor')}
-          className="gradient-bg text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-accent-lg active:scale-[0.98]"
-        >
-          Открыть монитор →
-        </button>
+        {/* Language + CTA */}
+        <div className="flex items-center gap-2">
+          <LanguageSwitch />
+          <button
+            onClick={() => navigate('/monitor')}
+            className="gradient-bg text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-accent-lg active:scale-[0.98]"
+          >
+            {t('nav.openMonitor')}
+          </button>
+        </div>
       </div>
     </motion.nav>
   )

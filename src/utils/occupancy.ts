@@ -13,7 +13,8 @@ export const OCCUPANCY_COLORS: Record<OccupancyLevel, string> = {
 };
 
 export const OCCUPANCY_LABELS: Record<OccupancyLevel, string> = {
-  low:    'Свободно',
-  medium: 'Заполнен',
-  high:   'Переполнен',
+  // Dictionary keys — callers run these through t().
+  low:    'occ.low',
+  medium: 'occ.medium',
+  high:   'occ.high',
 };
