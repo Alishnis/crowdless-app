@@ -1,0 +1,201 @@
+{
+  "clip": "A_d800mm_R7.mpg",
+  "sample_id": 17,
+  "start_seconds": 0.0,
+  "end_seconds": 81.44,
+  "line_ratio": 0.5,
+  "orientation": "h",
+  "invert": false,
+  "note": "PAMELA-UANDES ground truth (Velastin et al. 2020) — real head-box tracks replayed through CrowdLess's own CountLine/LineCounter, not hand-eyeballed.",
+  "events": [
+    {
+      "t": 13.2,
+      "type": "in"
+    },
+    {
+      "t": 13.52,
+      "type": "in"
+    },
+    {
+      "t": 14.8,
+      "type": "in"
+    },
+    {
+      "t": 16.04,
+      "type": "in"
+    },
+    {
+      "t": 17.08,
+      "type": "in"
+    },
+    {
+      "t": 18.12,
+      "type": "in"
+    },
+    {
+      "t": 19.08,
+      "type": "in"
+    },
+    {
+      "t": 20.48,
+      "type": "in"
+    },
+    {
+      "t": 21.6,
+      "type": "in"
+    },
+    {
+      "t": 22.32,
+      "type": "in"
+    },
+    {
+      "t": 23.12,
+      "type": "in"
+    },
+    {
+      "t": 24.4,
+      "type": "in"
+    },
+    {
+      "t": 26.68,
+      "type": "in"
+    },
+    {
+      "t": 26.72,
+      "type": "in"
+    },
+    {
+      "t": 28.32,
+      "type": "in"
+    },
+    {
+      "t": 29.2,
+      "type": "in"
+    },
+    {
+      "t": 30.6,
+      "type": "in"
+    },
+    {
+      "t": 31.48,
+      "type": "in"
+    },
+    {
+      "t": 32.8,
+      "type": "in"
+    },
+    {
+      "t": 35.32,
+      "type": "in"
+    },
+    {
+      "t": 35.96,
+      "type": "in"
+    },
+    {
+      "t": 37.04,
+      "type": "in"
+    },
+    {
+      "t": 38.04,
+      "type": "in"
+    },
+    {
+      "t": 41.08,
+      "type": "in"
+    },
+    {
+      "t": 42.96,
+      "type": "in"
+    },
+    {
+      "t": 44.0,
+      "type": "in"
+    },
+    {
+      "t": 46.24,
+      "type": "in"
+    },
+    {
+      "t": 48.16,
+      "type": "in"
+    },
+    {
+      "t": 48.44,
+      "type": "in"
+    },
+    {
+      "t": 48.68,
+      "type": "in"
+    },
+    {
+      "t": 50.88,
+      "type": "in"
+    },
+    {
+      "t": 53.36,
+      "type": "in"
+    },
+    {
+      "t": 53.96,
+      "type": "in"
+    },
+    {
+      "t": 55.44,
+      "type": "in"
+    },
+    {
+      "t": 57.24,
+      "type": "in"
+    },
+    {
+      "t": 58.92,
+      "type": "in"
+    },
+    {
+      "t": 59.2,
+      "type": "in"
+    },
+    {
+      "t": 60.96,
+      "type": "in"
+    },
+    {
+      "t": 61.84,
+      "type": "in"
+    },
+    {
+      "t": 62.32,
+      "type": "in"
+    },
+    {
+      "t": 64.0,
+      "type": "in"
+    },
+    {
+      "t": 68.84,
+      "type": "in"
+    },
+    {
+      "t": 71.96,
+      "type": "in"
+    },
+    {
+      "t": 72.8,
+      "type": "in"
+    },
+    {
+      "t": 77.64,
+      "type": "out"
+    },
+    {
+      "t": 80.72,
+      "type": "out"
+    }
+  ],
+  "in_count": 44,
+  "out_count": 2,
+  "id": "a-d800mm-r7_0.0-81.4",
+  "created_at": 1790330780.5636458,
+  "updated_at": 1790330780.563648
+}

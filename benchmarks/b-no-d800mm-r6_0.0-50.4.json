@@ -1,0 +1,141 @@
+{
+  "clip": "B_No_d800mm_R6.mpg",
+  "sample_id": 24,
+  "start_seconds": 0.0,
+  "end_seconds": 50.36,
+  "line_ratio": 0.5,
+  "orientation": "h",
+  "invert": true,
+  "note": "PAMELA-UANDES ground truth (Velastin et al. 2020) — real head-box tracks replayed through CrowdLess's own CountLine/LineCounter, not hand-eyeballed.",
+  "events": [
+    {
+      "t": 7.56,
+      "type": "in"
+    },
+    {
+      "t": 7.56,
+      "type": "in"
+    },
+    {
+      "t": 8.04,
+      "type": "in"
+    },
+    {
+      "t": 9.08,
+      "type": "in"
+    },
+    {
+      "t": 10.48,
+      "type": "in"
+    },
+    {
+      "t": 11.0,
+      "type": "in"
+    },
+    {
+      "t": 12.6,
+      "type": "in"
+    },
+    {
+      "t": 14.28,
+      "type": "in"
+    },
+    {
+      "t": 14.44,
+      "type": "in"
+    },
+    {
+      "t": 16.2,
+      "type": "in"
+    },
+    {
+      "t": 17.6,
+      "type": "in"
+    },
+    {
+      "t": 18.0,
+      "type": "out"
+    },
+    {
+      "t": 18.32,
+      "type": "in"
+    },
+    {
+      "t": 19.76,
+      "type": "in"
+    },
+    {
+      "t": 21.72,
+      "type": "out"
+    },
+    {
+      "t": 21.76,
+      "type": "in"
+    },
+    {
+      "t": 23.52,
+      "type": "in"
+    },
+    {
+      "t": 24.6,
+      "type": "in"
+    },
+    {
+      "t": 25.6,
+      "type": "in"
+    },
+    {
+      "t": 25.68,
+      "type": "in"
+    },
+    {
+      "t": 26.28,
+      "type": "in"
+    },
+    {
+      "t": 27.64,
+      "type": "in"
+    },
+    {
+      "t": 27.84,
+      "type": "out"
+    },
+    {
+      "t": 29.04,
+      "type": "in"
+    },
+    {
+      "t": 31.84,
+      "type": "in"
+    },
+    {
+      "t": 33.76,
+      "type": "in"
+    },
+    {
+      "t": 37.32,
+      "type": "in"
+    },
+    {
+      "t": 41.04,
+      "type": "in"
+    },
+    {
+      "t": 42.68,
+      "type": "in"
+    },
+    {
+      "t": 44.88,
+      "type": "in"
+    },
+    {
+      "t": 46.96,
+      "type": "in"
+    }
+  ],
+  "in_count": 28,
+  "out_count": 3,
+  "id": "b-no-d800mm-r6_0.0-50.4",
+  "created_at": 1790330780.655922,
+  "updated_at": 1790330780.655923
+}

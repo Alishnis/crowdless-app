@@ -6,7 +6,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
 from .counters.common import CountLine, LineCounter, Detection, encode_jpeg, is_color_video
-from .counters.method_depth import DepthMethod
+from .counters.method_head import HeadMethod
 from .counters.runner import METHOD_INFO, METHODS, RunConfig, method_info, run
 from . import benchmarks
 
@@ -39,8 +39,8 @@ SAMPLE_PRESETS = {
     "HPC168": {
         "start_seconds": 96.0, "max_seconds": 16.0, "line_ratio": 0.55,
         "invert": False, "orientation": "h",
-        "note": "ИК/ч-б съёмка сверху — идеально для метода C (depth).",
-        "note_en": "Overhead IR/greyscale footage — ideal for method C (depth).",
+        "note": "ИК/ч-б съёмка сверху над дверью.",
+        "note_en": "Overhead IR/greyscale doorway footage.",
     },
     "Hikvision": {
         "start_seconds": 14.0, "max_seconds": 12.0, "line_ratio": 0.55,
@@ -53,6 +53,24 @@ SAMPLE_PRESETS = {
         "invert": False, "orientation": "h",
         "note": "Запись экрана — людей нет, полезна как negative-тест.",
         "note_en": "A screencast with no people — useful as a negative test.",
+    },
+    "A_d800mm": {
+        "start_seconds": 0.0, "max_seconds": 15.0, "line_ratio": 0.50,
+        "invert": False, "orientation": "h",
+        "note": ("PAMELA-UANDES (Velastin et al. 2020): реальная съёмка высадки "
+                 "пассажиров с покадровой разметкой — источник benchmarks/."),
+        "note_en": ("PAMELA-UANDES (Velastin et al. 2020): genuine alighting "
+                    "footage with frame-accurate ground truth — source of the "
+                    "benchmarks/ used for evaluation."),
+    },
+    "B_No_d800mm": {
+        "start_seconds": 0.0, "max_seconds": 15.0, "line_ratio": 0.50,
+        "invert": True, "orientation": "h",
+        "note": ("PAMELA-UANDES (Velastin et al. 2020): реальная съёмка посадки "
+                 "пассажиров с покадровой разметкой — источник benchmarks/."),
+        "note_en": ("PAMELA-UANDES (Velastin et al. 2020): genuine boarding "
+                    "footage with frame-accurate ground truth — source of the "
+                    "benchmarks/ used for evaluation."),
     },
 }
 DEFAULT_PRESET = {
@@ -73,7 +91,8 @@ def _preset_for(path: str) -> dict:
 
 def _sample_paths() -> list[str]:
     return sorted(glob.glob("test_data/*.mov") + glob.glob("test_data/*.mp4")) + \
-           sorted(glob.glob("test_data/quality/*.mp4"))
+           sorted(glob.glob("test_data/quality/*.mp4")) + \
+           sorted(glob.glob("test_data/pamela-uandes/*.mpg"))
 
 
 # ─── Job registry ─────────────────────────────────────────────────────────────
@@ -122,34 +141,11 @@ def _run_job(job_id: str, video_path: str, cfg: RunConfig, cleanup: bool = False
                 pass
 
 
-# Fine-tunes produced by backend/training/ — yolo11n-pose and yolov8n adapted to
-# overhead doorway footage. Each declares the settings it was calibrated at,
-# because the two behave nothing alike and a mismatch is catastrophic rather
-# than merely suboptimal:
-#
-#  * Both trained at imgsz 512. Running the pose fine-tune at 640 made it emit
-#    ~48 boxes/frame instead of ~4.
-#  * conf goes the OPPOSITE way for the two. Method A needs a LOW threshold:
-#    ByteTrack sustains a track through a doorway occlusion using precisely the
-#    low-scoring boxes, so a high conf starves it, the id dies, and the same
-#    person is re-counted on a fresh id (9 ids for ~5 people at conf 0.5,
-#    against 4 ids at conf 0.2). Method B degrades the other way — at conf 0.2
-#    it reported 10 against a truth of 5, and needs 0.5.
-#  * A hand-tuned bytetrack.yaml (bigger track_buffer, higher new_track_thresh)
-#    was tried for method A and made it worse than stock — 8 counts vs 4. The
-#    `tracker` field stays plumbed through RunConfig, but stock wins here.
-#  * Method A counts the box BOTTOM even from overhead: the centre oscillates
-#    across the line in this fisheye view and roughly doubled the count
-#    (8-9 vs 4-5). This was the reverse of what we assumed going in.
-#
-# Every number above comes from a sweep on ONE held-out clip, so treat these as
-# per-camera starting points, not constants.
-FINETUNES = {
-    "pose": {"weights": "models/topview_pose.pt", "imgsz": 512,
-             "conf": 0.50, "min_age": 10, "point": ""},
-    "bbox": {"weights": "models/topview_det.pt",  "imgsz": 512,
-             "conf": 0.20, "min_age": 3,  "point": "bottom"},
-}
+# Method D already ships its own calibrated weights (models/pamela_head.pt) as
+# its default — there is no separate "fine-tuned" variant to switch to yet, so
+# this stays empty. See backend/training/eval_head.py for how its defaults
+# (runs/head_best.json) were chosen, on a dev split the test clips never touch.
+FINETUNES: dict = {}
 
 
 def _parse_params(raw: str) -> dict:
@@ -204,28 +200,12 @@ def list_methods(lang: str = Query("ru")):
 
 @app.get("/models")
 def list_models(lang: str = Query("ru")):
-    """Which weight sets each method can run — fine-tunes appear once trained."""
-    base = {"pose": "yolo11n-pose", "bbox": "yolov8n"}
-    return {
-        m: [
-            {"id": "baseline", "name": f"{base[m]} (COCO)",
-             "desc": ("Baseline model — trained on upright people seen from the side"
-                      if lang == "en" else
-                      "Базовая модель — училась на людях в полный рост сбоку"),
-             "available": True},
-            {"id": "topview",
-             "name": f"{base[m]} ({'fine-tuned on top-view' if lang == 'en' else 'дообучена на top-view'})",
-             "desc": ("Fine-tuned on frames from cameras above the door in test_data"
-                      if lang == "en" else
-                      "Дообучена на кадрах с камер над дверью из test_data"),
-             "available": finetune_for(m) is not None,
-             # Surfaced so the UI can say which threshold is in force — the two
-             # fine-tunes need opposite conf values and the slider is ignored.
-             "settings": {k: v for k, v in (finetune_for(m) or {}).items()
-                          if k in ("conf", "imgsz", "min_age")}},
-        ]
-        for m in ("pose", "bbox")
-    }
+    """Which weight sets each method can run — fine-tunes appear once trained.
+
+    Empty today: method D's only weights are its own default
+    (models/pamela_head.pt), so there is nothing yet to toggle between.
+    """
+    return {m: [] for m in METHODS}
 
 
 @app.get("/samples")
@@ -300,7 +280,7 @@ async def upload_video(background_tasks: BackgroundTasks,
     tmp.close()
 
     if method == "auto":
-        method = "bbox" if is_color_video(tmp.name) else "depth"
+        method = "head"
     if method not in METHODS:
         os.unlink(tmp.name)
         return {"error": f"Unknown method: {method}"}
@@ -316,7 +296,7 @@ async def upload_video(background_tasks: BackgroundTasks,
 
 @app.post("/compare")
 async def compare_upload(file: UploadFile = File(...),
-                         methods: str = Query("bbox,pose,depth"),
+                         methods: str = Query("head"),
                          line_ratio: float = Query(0.55, ge=0.05, le=0.95),
                          orientation: str = Query("h"),
                          invert: bool = Query(False),
@@ -351,7 +331,7 @@ async def compare_upload(file: UploadFile = File(...),
 
 @app.post("/sample/{sample_id}/run")
 def run_sample(sample_id: int,
-               methods: str = Query("bbox,pose,depth"),
+               methods: str = Query("head"),
                line_ratio: float = Query(0.55, ge=0.05, le=0.95),
                orientation: str = Query("h"),
                invert: bool = Query(False),
@@ -416,7 +396,7 @@ def download_video(job_id: str):
 # ─── Live demo counter (unchanged contract for the existing Monitor page) ─────
 
 class DoorCounter:
-    """Streams the bundled clips through the depth method, frame batch by batch."""
+    """Streams the bundled clips through method D, frame batch by batch."""
 
     def __init__(self):
         self.cap     = None
@@ -441,7 +421,7 @@ class DoorCounter:
         scale = min(1.0, 640 / max(1, src_w))
         self.w, self.h = int(src_w * scale), int(src_h * scale)
 
-        self.method = DepthMethod()
+        self.method = HeadMethod()
         self.method.prepare(path, self.w, self.h)
         self.counter = LineCounter(CountLine(0.55, "h"), cooldown=12)
         return True

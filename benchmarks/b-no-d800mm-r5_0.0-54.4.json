@@ -1,0 +1,133 @@
+{
+  "clip": "B_No_d800mm_R5.mpg",
+  "sample_id": 23,
+  "start_seconds": 0.0,
+  "end_seconds": 54.36,
+  "line_ratio": 0.5,
+  "orientation": "h",
+  "invert": true,
+  "note": "PAMELA-UANDES ground truth (Velastin et al. 2020) — real head-box tracks replayed through CrowdLess's own CountLine/LineCounter, not hand-eyeballed.",
+  "events": [
+    {
+      "t": 5.52,
+      "type": "in"
+    },
+    {
+      "t": 8.92,
+      "type": "in"
+    },
+    {
+      "t": 10.28,
+      "type": "in"
+    },
+    {
+      "t": 11.36,
+      "type": "in"
+    },
+    {
+      "t": 11.56,
+      "type": "in"
+    },
+    {
+      "t": 12.2,
+      "type": "in"
+    },
+    {
+      "t": 12.96,
+      "type": "in"
+    },
+    {
+      "t": 15.48,
+      "type": "in"
+    },
+    {
+      "t": 17.0,
+      "type": "in"
+    },
+    {
+      "t": 17.12,
+      "type": "in"
+    },
+    {
+      "t": 19.08,
+      "type": "in"
+    },
+    {
+      "t": 20.76,
+      "type": "in"
+    },
+    {
+      "t": 20.84,
+      "type": "in"
+    },
+    {
+      "t": 22.48,
+      "type": "in"
+    },
+    {
+      "t": 22.68,
+      "type": "out"
+    },
+    {
+      "t": 22.88,
+      "type": "in"
+    },
+    {
+      "t": 24.08,
+      "type": "in"
+    },
+    {
+      "t": 27.48,
+      "type": "in"
+    },
+    {
+      "t": 32.56,
+      "type": "in"
+    },
+    {
+      "t": 32.64,
+      "type": "in"
+    },
+    {
+      "t": 34.16,
+      "type": "in"
+    },
+    {
+      "t": 36.48,
+      "type": "in"
+    },
+    {
+      "t": 40.24,
+      "type": "in"
+    },
+    {
+      "t": 41.44,
+      "type": "in"
+    },
+    {
+      "t": 43.56,
+      "type": "in"
+    },
+    {
+      "t": 46.28,
+      "type": "in"
+    },
+    {
+      "t": 46.52,
+      "type": "in"
+    },
+    {
+      "t": 49.2,
+      "type": "in"
+    },
+    {
+      "t": 50.36,
+      "type": "in"
+    }
+  ],
+  "in_count": 28,
+  "out_count": 1,
+  "id": "b-no-d800mm-r5_0.0-54.4",
+  "created_at": 1790330780.624524,
+  "updated_at": 1790330780.624524
+}

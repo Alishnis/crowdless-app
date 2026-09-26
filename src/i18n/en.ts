@@ -56,8 +56,8 @@ export const en: Record<string, string> = {
 
   // ── Lab: page chrome ──────────────────────────────────────────────────────
   'lab.label':        'Method lab',
-  'lab.title':        'Three ways to count passengers',
-  'lab.lead':         'One video, one counting line, the very same frames — and three different algorithms over them. That way the gap between the numbers tells you about the methods, not about the footage.',
+  'lab.title':        'Counting passengers in a dense queue',
+  'lab.lead':         "A head detector trained on PAMELA-UANDES's real labels, paired with a tracker built to hold a person's id through partial occlusion in a queue — where an ordinary body detector and box tracker lose count.",
   'lab.backendDown':  'Backend unreachable — start it with: uvicorn backend.main:app --port 8000',
   'lab.pickVideo':    'Pick a video first',
 
@@ -93,10 +93,10 @@ export const en: Record<string, string> = {
   'lab.ft.titleOne':  'Fine-tuned model — method {which}',
   'lab.ft.titleMany': 'Fine-tuned models — methods {which}',
   'lab.ft.ready':     'Trained on frames from cameras above the door, each with its own imgsz/conf',
-  'lab.ft.missing':   'Not trained yet — run backend.training.train_pose',
+  'lab.ft.missing':   'Not trained yet',
 
   // ── Lab: run ──────────────────────────────────────────────────────────────
-  'lab.run':        'Run all three',
+  'lab.run':        'Run method D',
   'lab.running':    'Analysing…',
   'lab.reset':      'Reset',
   'lab.queueNote':  'Methods run one at a time, so the fps figures stay honest.',
@@ -127,7 +127,7 @@ export const en: Record<string, string> = {
   'cmp.speed':   'Speed',
   'cmp.time':    'Time',
   'cmp.fastest': 'fastest',
-  'cmp.note':    'The gap between these numbers is the answer to “which method should we use”. On overhead footage the box-based YOLO (A) usually loses: the model learnt upright people seen from the side, not the tops of heads. Method C is the fastest of the three, but it counts any moving mass.',
+  'cmp.note':    'Method D holds up in a dense queue (the PAMELA clips) because it looks for heads rather than body boxes, which merge together in a queue.',
 
   // ── Method page ───────────────────────────────────────────────────────────
   'method.back':      'back to all methods',
@@ -266,7 +266,7 @@ export const en: Record<string, string> = {
   'ann.nav': 'Annotate',
   'ann.label': 'Ground-truth annotation',
   'ann.title': 'Mark who got on and who got off',
-  'ann.lead': 'Play a stretch and mark every person with a key. The result is a ground-truth file that evaluate.py runs all three methods against in one go.',
+  'ann.lead': 'Play a stretch and mark every person with a key. The result is a ground-truth file that evaluate.py runs method D against in one go.',
   'ann.clip': 'Clip',
   'ann.segment': 'Segment',
   'ann.markStart': 'Start = now',

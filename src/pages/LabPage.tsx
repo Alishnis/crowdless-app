@@ -6,8 +6,8 @@ import MethodCard from '../components/lab/MethodCard'
 import { useCounterJobs } from '../hooks/useCounterJobs'
 import { useI18n, useT } from '../i18n'
 import { useLabSource } from '../hooks/useLabSource'
-import { fetchMethods, finetunedMethods, runSample, runUpload } from '../services/counters'
-import type { MethodInfo, ModelVariant, SampleInfo } from '../services/counters'
+import { fetchMethods, runSample, runUpload } from '../services/counters'
+import type { MethodInfo, SampleInfo } from '../services/counters'
 
 export default function LabPage() {
   const { lang, t } = useI18n()
@@ -47,7 +47,7 @@ export default function LabPage() {
   }, [src, start])
 
   const allIds = methods.map(m => m.id)
-  const { sample, samples, sampleId, upload, thumb, params, models, error, ready } = src
+  const { sample, samples, sampleId, upload, thumb, params, error, ready } = src
   const setParams = src.setParams
 
   return (
@@ -186,11 +186,6 @@ export default function LabPage() {
                         : t('lab.param.minAgeHint', { n: params.min_age })}
                       onChange={v => setParams(p => ({ ...p, min_age: v }))} />
 
-              <FineTuneToggle
-                models={models}
-                value={params.finetuned}
-                onChange={v => setParams(p => ({ ...p, finetuned: v }))}
-              />
             </section>
 
             {/* Run */}
@@ -219,9 +214,9 @@ export default function LabPage() {
             </p>
           </div>
 
-          {/* ── Right: the three methods ──────────────────────────────────── */}
+          {/* ── Right: the methods ────────────────────────────────────────── */}
           <div className="space-y-6">
-            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="grid md:grid-cols-2 gap-4">
               {methods.map(m => (
                 <MethodCard
                   key={m.id}
@@ -242,47 +237,6 @@ export default function LabPage() {
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
-
-/** Method B can swap its COCO weights for ones fine-tuned on overhead footage. */
-function FineTuneToggle({ models, value, onChange }: {
-  models: Record<string, ModelVariant[]>; value: boolean; onChange: (v: boolean) => void
-}) {
-  const { lang, t } = useI18n()
-  const tuned = finetunedMethods(models)
-  const ready = tuned.length > 0
-  const labels: Record<string, string> = { bbox: 'A', pose: 'B' }
-  const which = tuned.map(m => labels[m] ?? m).sort().join(lang === 'en' ? ' & ' : ' и ')
-
-  return (
-    <div className="pt-3 border-t border-border">
-      <button
-        onClick={() => ready && onChange(!value)}
-        disabled={!ready}
-        className={`w-full flex items-start gap-2 p-2.5 rounded-lg border text-left transition-colors
-          ${!ready ? 'border-border opacity-50 cursor-not-allowed'
-            : value ? 'border-accent bg-accent/10' : 'border-border hover:bg-muted'}`}
-      >
-        <span className={`mt-0.5 w-8 h-4 shrink-0 rounded-full transition-colors relative
-                          ${value && ready ? 'bg-accent' : 'bg-border'}`}>
-          <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all
-                            ${value && ready ? 'left-4' : 'left-0.5'}`} />
-        </span>
-        <span className="min-w-0">
-          <span className="block text-[11px] font-medium">
-            {ready
-              ? t(tuned.length > 1 ? 'lab.ft.titleMany' : 'lab.ft.titleOne', { which })
-              : t('lab.ft.title')}
-          </span>
-          <span className="block text-[10px] text-muted-foreground leading-snug mt-0.5">
-            {ready
-              ? t('lab.ft.ready')
-                                 : t('lab.ft.missing')}
-          </span>
-        </span>
-      </button>
-    </div>
-  )
-}
 
 function Slider({ label, value, min, max, step, hint, disabled, onChange }: {
   label: string; value: number; min: number; max: number; step: number

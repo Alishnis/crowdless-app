@@ -1,92 +1,28 @@
-"""Compare baseline vs fine-tuned weights for method A or B.
+"""Score every registered counting method against every annotated benchmark.
 
-Two numbers matter, and they are not the same number:
+    python -m backend.training.evaluate --suite
+    python -m backend.training.evaluate --suite --suite-methods head --quiet
 
-1. Detection density on held-out top-view frames — does the student see people the
-   COCO model missed? For method B, whether it also recovers the shoulder pair
-   that the anchor is built on.
-2. The count the method actually reports on the held-out benchmark, where the
-   true answer is known by eye. Better detection only pays off if it survives
-   tracking and line crossing, so min_age is swept rather than assumed.
-
-    python -m backend.training.evaluate --method pose
-    python -m backend.training.evaluate --method bbox --point center
+This used to also carry a baseline-vs-fine-tuned probe for methods A and B
+(RGB+YOLO+ByteTrack, top-down pose) — see git history if that comparison is
+ever needed again. Those methods were dropped from the running app once
+method D (head detector + head tracker) outperformed all three of them on the
+dense-queue benchmark; only the suite scorer below survived, because it is
+generic over whatever `backend.counters.runner.METHODS` currently registers.
 """
 from __future__ import annotations
 
 import argparse
+import glob
 import os
 
-import cv2
+from backend.counters.runner import METHODS, RunConfig, run
 
-from backend.counters.runner import RunConfig, run
-
-# STONKAM 19.5-24.0s: one continuous scene, ~5-6 people boarding (moving up the
-# frame, hence invert). Excluded from the training set on purpose.
-BENCH = {
-    "path":  "test_data/quality/Bus Passenger Counting Camera.mp4",
-    "start": 19.5,
-    "seconds": 4.5,
-    "line":  0.50,
-    "invert": True,
-    "truth_in": 5,
-}
-PROBE_TIMES = (20.0, 20.8, 21.6, 22.4, 23.2, 24.0)
-KP_CONF = 0.30
-
-DEFAULTS = {
-    "pose": {"baseline": "yolo11n-pose.pt", "finetuned": "models/topview_pose.pt",
-             "teacher": "yolo11m-pose.pt"},
-    "bbox": {"baseline": "yolov8n.pt",      "finetuned": "models/topview_det.pt",
-             "teacher": "yolo11m-pose.pt"},
-}
-
-
-def probe(weights: str, device: str, conf: float, imgsz: int):
-    """Detections (and shoulder pairs) per frame on held-out top-view frames."""
-    from ultralytics import YOLO
-    model = YOLO(weights)
-
-    n_det = n_sh = n_frames = 0
-    cap = cv2.VideoCapture(BENCH["path"])
-    fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
-    for t in PROBE_TIMES:
-        cap.set(cv2.CAP_PROP_POS_FRAMES, int(t * fps))
-        ok, frame = cap.read()
-        if not ok:
-            continue
-        frame = cv2.resize(frame, (640, int(frame.shape[0] * 640 / frame.shape[1])))
-        r = model.predict(frame, classes=[0], conf=conf, imgsz=imgsz,
-                          device=device, verbose=False)[0]
-        n_frames += 1
-        if r.boxes is None:
-            continue
-        n_det += len(r.boxes)
-        if r.keypoints is not None and r.keypoints.conf is not None:
-            kc = r.keypoints.conf.cpu().numpy()
-            if len(kc):
-                n_sh += int(((kc[:, 5] > KP_CONF) & (kc[:, 6] > KP_CONF)).sum())
-    cap.release()
-    f = max(1, n_frames)
-    return n_det / f, n_sh / f
-
-
-def count(method: str, weights: str | None, conf: float, imgsz: int = 0,
-          min_age: int = 3, point: str = "") -> dict:
-    cfg = RunConfig(method=method, line_ratio=BENCH["line"], invert=BENCH["invert"],
-                    start_seconds=BENCH["start"], max_seconds=BENCH["seconds"],
-                    conf=conf, write_video=False, min_age=min_age,
-                    weights=weights or "", imgsz=imgsz, point=point)
-    return run(BENCH["path"], cfg)
-
-
-
-# ─── Whole-suite evaluation ───────────────────────────────────────────────────
 
 def _sample_paths() -> list[str]:
-    import glob
     return sorted(glob.glob("test_data/*.mov") + glob.glob("test_data/*.mp4")) + \
-           sorted(glob.glob("test_data/quality/*.mp4"))
+           sorted(glob.glob("test_data/quality/*.mp4")) + \
+           sorted(glob.glob("test_data/pamela-uandes/*.mpg"))
 
 
 def run_suite(methods: list[str], finetuned: bool, verbose: bool) -> int:
@@ -176,68 +112,17 @@ def run_suite(methods: list[str], finetuned: bool, verbose: bool) -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--method", choices=["pose", "bbox"], default="pose")
-    ap.add_argument("--weights", default="")
-    ap.add_argument("--baseline", default="")
-    ap.add_argument("--teacher", default="")
-    ap.add_argument("--conf", type=float, default=0.30)
-    ap.add_argument("--imgsz", type=int, default=640)
-    # The fine-tune is evaluated at the size it was trained at and at its own
-    # threshold; comparing it at the baseline's settings measures the mismatch,
-    # not the model.
-    ap.add_argument("--ft-conf", type=float, default=0.50)
-    ap.add_argument("--ft-imgsz", type=int, default=512)
-    ap.add_argument("--point", default="", help="method A counting point: bottom|center")
-    ap.add_argument("--sweep-min-age", type=int, nargs="+", default=[3, 6, 10, 15])
-    ap.add_argument("--suite", action="store_true",
+    ap.add_argument("--suite", action="store_true", default=True,
                     help="score every method against every annotated benchmark")
     ap.add_argument("--finetuned", action="store_true",
-                    help="with --suite: use the top-view fine-tuned weights")
-    ap.add_argument("--quiet", action="store_true", help="with --suite: totals only")
-    ap.add_argument("--suite-methods", default="bbox,pose,depth",
-                    help="with --suite: which methods to score")
+                    help="use each method's fine-tuned weights, where one exists")
+    ap.add_argument("--quiet", action="store_true", help="totals only, no per-clip rows")
+    ap.add_argument("--suite-methods", default=",".join(METHODS),
+                    help="comma-separated method ids to score")
     args = ap.parse_args()
 
-    if args.suite:
-        wanted = [m.strip() for m in args.suite_methods.split(",") if m.strip()]
-        return run_suite(wanted, args.finetuned, not args.quiet)
-
-    d = DEFAULTS[args.method]
-    weights  = args.weights  or d["finetuned"]
-    baseline = args.baseline or d["baseline"]
-    teacher  = args.teacher  or d["teacher"]
-
-    import torch
-    device = "mps" if torch.backends.mps.is_available() else \
-             "cuda" if torch.cuda.is_available() else "cpu"
-
-    if not os.path.exists(weights):
-        print(f"!! {weights} not found — train it first")
-        return 1
-
-    print(f"method={args.method} device={device}  benchmark: STONKAM "
-          f"{BENCH['start']}-{BENCH['start'] + BENCH['seconds']}s (held out), "
-          f"truth ≈ {BENCH['truth_in']} entering\n")
-
-    print(f"{'weights':26} {'imgsz':>6} {'conf':>5} {'det/frm':>8} {'shoulders/frm':>14}")
-    for label, w, sz, cf in (
-        (f"baseline {baseline}", baseline, args.imgsz, args.conf),
-        ("fine-tuned",           weights,  args.ft_imgsz, args.ft_conf),
-        (f"teacher {teacher}",   teacher,  1280, 0.15),
-    ):
-        det, sh = probe(w, device, cf, sz)
-        print(f"{label:26} {sz:>6} {cf:>5} {det:>8.1f} {sh:>14.1f}")
-
-    # A fragmented track is re-counted every time a fresh id crosses the line,
-    # so the honest comparison sweeps the knob that suppresses young ids.
-    print(f"\nend-to-end (truth IN = {BENCH['truth_in']}"
-          f"{', point=' + args.point if args.point else ''})")
-    print(f"{'min_age':>8} {'baseline IN':>12} {'fine-tuned IN':>14}")
-    for ma in args.sweep_min_age:
-        b = count(args.method, None, args.conf, 0, ma, args.point)
-        f = count(args.method, weights, args.ft_conf, args.ft_imgsz, ma, args.point)
-        print(f"{ma:>8} {b['in_count']:>12} {f['in_count']:>14}")
-    return 0
+    wanted = [m.strip() for m in args.suite_methods.split(",") if m.strip()]
+    return run_suite(wanted, args.finetuned, not args.quiet)
 
 
 if __name__ == "__main__":

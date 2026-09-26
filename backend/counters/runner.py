@@ -3,6 +3,11 @@
 Method-specific code only ever sees a frame and returns detections; the
 resizing, the line crossing, the HUD, the annotated mp4 and the timing all live
 here, so a comparison between two methods measures the methods and nothing else.
+
+Only method D (head detector + head tracker) is wired in — see git history for
+methods A/B/C (RGB+YOLO+ByteTrack, top-down pose, depth/background blobs),
+which were dropped from the running app once D outperformed all three on the
+dense-queue benchmark (see counting-methods-findings in project memory).
 """
 from __future__ import annotations
 
@@ -15,64 +20,33 @@ from typing import Callable
 import cv2
 import numpy as np
 
-from .common import CountLine, LineCounter, draw_hud, encode_jpeg, is_color_video
-from .method_bbox import BBoxMethod
-from .method_depth import DepthMethod
-from .method_pose import PoseMethod
+from .common import CountLine, LineCounter, draw_hud, encode_jpeg
+from .method_head import HeadMethod
 
 METHODS = {
-    BBoxMethod.id:  BBoxMethod,
-    PoseMethod.id:  PoseMethod,
-    DepthMethod.id: DepthMethod,
+    HeadMethod.id: HeadMethod,
 }
 
 # Tunable knobs per method. The UI renders its controls straight from this, so a
 # new knob needs no frontend change — and `sanitize_params` below means the
 # frontend can never push a value the method would choke on.
 PARAMS = {
-    BBoxMethod.id: [
-        {"key": "point", "label": "Точка подсчёта", "type": "select",
-         "default": "bottom",
-         "options": [{"value": "bottom", "label": "Низ рамки (ноги)"},
-                     {"value": "center", "label": "Центр рамки"}],
-         "hint": "Вопреки ожиданиям, низ рамки выигрывает даже на съёмке сверху"},
-        {"key": "imgsz", "label": "Разрешение модели", "type": "select",
-         "default": 640,
-         "options": [{"value": 416, "label": "416 — быстрее"},
-                     {"value": 512, "label": "512 — как у дообученной"},
-                     {"value": 640, "label": "640 — базовое"},
-                     {"value": 960, "label": "960 — мелкие фигуры"}],
-         "hint": "Должно совпадать с разрешением обучения весов"},
-    ],
-    PoseMethod.id: [
-        {"key": "kp_conf", "label": "Порог keypoints", "type": "float",
-         "default": 0.30, "min": 0.05, "max": 0.80, "step": 0.05,
-         "hint": "Ниже порога плечи не считаются найденными и якорь падает на голову"},
-        {"key": "imgsz", "label": "Разрешение модели", "type": "select",
-         "default": 640,
-         "options": [{"value": 416, "label": "416 — быстрее"},
-                     {"value": 512, "label": "512 — как у дообученной"},
-                     {"value": 640, "label": "640 — базовое"},
-                     {"value": 960, "label": "960 — мелкие фигуры"}]},
-    ],
-    DepthMethod.id: [
-        {"key": "min_area_ratio", "label": "Мин. площадь блоба", "type": "float",
-         "default": 0.012, "min": 0.001, "max": 0.06, "step": 0.001,
-         "hint": "Доля кадра. Больше — отсекает мелкий мусор, но теряет детей"},
-        {"key": "diff_thresh", "label": "Порог отличия от фона", "type": "int",
-         "default": 30, "min": 5, "max": 90, "step": 1,
-         "hint": "Ниже — ловит больше движения и больше шума"},
-        {"key": "cut_thresh", "label": "Чувствительность к склейкам", "type": "float",
-         "default": 28.0, "min": 5.0, "max": 80.0, "step": 1.0,
-         "hint": "Резкая смена кадра сбрасывает модель фона"},
-        {"key": "max_aspect", "label": "Макс. вытянутость", "type": "float",
-         "default": 4.5, "min": 1.5, "max": 10.0, "step": 0.5,
-         "hint": "Отсекает полосы и тени — человек сверху компактен"},
-        {"key": "min_extent", "label": "Мин. заполненность", "type": "float",
-         "default": 0.30, "min": 0.05, "max": 0.90, "step": 0.05,
-         "hint": "Доля площади рамки, занятая блобом"},
-        {"key": "colormap", "label": "Псевдо-depth раскраска", "type": "bool",
-         "default": True},
+    HeadMethod.id: [
+        {"key": "conf_hi", "label": "Порог новой головы", "type": "float",
+         "default": 0.40, "min": 0.10, "max": 0.90, "step": 0.05,
+         "hint": "Только детекция увереннее порога может начать новый трек"},
+        {"key": "conf_lo", "label": "Порог продолжения трека", "type": "float",
+         "default": 0.10, "min": 0.05, "max": 0.50, "step": 0.05,
+         "hint": "Полускрытая голова может продолжить трек, но не начать новый"},
+        {"key": "gate", "label": "Радиус сопоставления", "type": "float",
+         "default": 0.7, "min": 0.3, "max": 2.0, "step": 0.1,
+         "hint": "В ширинах головы: как далеко голова может сместиться за кадр"},
+        {"key": "max_lost", "label": "Память о потерянной голове", "type": "int",
+         "default": 25, "min": 0, "max": 100, "step": 1,
+         "hint": "Кадров: сколько трек ждёт голову, скрытую толпой"},
+        {"key": "n_init", "label": "Подтверждение трека", "type": "int",
+         "default": 5, "min": 1, "max": 15, "step": 1,
+         "hint": "Кадров подряд, прежде чем голова считается человеком"},
     ],
 }
 
@@ -107,29 +81,16 @@ def sanitize_params(method: str, values: dict | None) -> dict:
 # English labels for the knobs above, keyed by "<method>.<param>". Only the
 # human-facing strings differ — types, ranges and defaults stay in PARAMS.
 PARAMS_EN = {
-    "bbox.point":  {"label": "Counting point",
-                    "options": {"bottom": "Box bottom (feet)", "center": "Box centre"},
-                    "hint": "Against expectations, the box bottom wins even from overhead"},
-    "bbox.imgsz":  {"label": "Model resolution",
-                    "options": {416: "416 — faster", 512: "512 — matches the fine-tune",
-                                640: "640 — baseline", 960: "960 — small figures"},
-                    "hint": "Must match the size the weights were trained at"},
-    "pose.kp_conf": {"label": "Keypoint threshold",
-                     "hint": "Below this the shoulders count as unfound and the anchor drops to the head"},
-    "pose.imgsz":  {"label": "Model resolution",
-                    "options": {416: "416 — faster", 512: "512 — matches the fine-tune",
-                                640: "640 — baseline", 960: "960 — small figures"}},
-    "depth.min_area_ratio": {"label": "Min blob area",
-                             "hint": "Share of the frame. Higher rejects specks but loses children"},
-    "depth.diff_thresh": {"label": "Background difference threshold",
-                          "hint": "Lower catches more motion and more noise"},
-    "depth.cut_thresh": {"label": "Scene-cut sensitivity",
-                         "hint": "A hard cut resets the background model"},
-    "depth.max_aspect": {"label": "Max elongation",
-                         "hint": "Rejects streaks and shadows — a person from above is compact"},
-    "depth.min_extent": {"label": "Min fill ratio",
-                         "hint": "Share of the bounding box the blob occupies"},
-    "depth.colormap": {"label": "Pseudo-depth colouring"},
+    "head.conf_hi":  {"label": "New-head threshold",
+                      "hint": "Only a detection above this may start a new track"},
+    "head.conf_lo":  {"label": "Track-continuation threshold",
+                      "hint": "A half-hidden head may continue a track but never start one"},
+    "head.gate":     {"label": "Match radius",
+                      "hint": "In head widths: how far a head may move between frames"},
+    "head.max_lost": {"label": "Lost-head memory",
+                      "hint": "Frames a track waits for a head hidden by the crowd"},
+    "head.n_init":   {"label": "Track confirmation",
+                      "hint": "Consecutive frames before a head counts as a person"},
 }
 
 
@@ -166,68 +127,35 @@ def _params_for(method: str, lang: str) -> list[dict]:
 METHOD_INFO_I18N = {
     "ru": [
         {
-            "id": BBoxMethod.id, "label": BBoxMethod.label, "name": BBoxMethod.name,
-            "title": "Метод A — RGB + YOLO + ByteTrack",
-            "desc":  "Обычная камера в салоне. YOLO находит людей, ByteTrack держит ID, "
-                     "счёт по пересечению линии нижней точкой рамки.",
-            "pros":  ["Работает с любой существующей камерой", "Ничего не надо доустанавливать"],
-            "cons":  ["Окклюзия в час пик", "Точность падает в плотной толпе"],
-            "datasets": ["COCO (претрейн)", "CrowdHuman (дообучение)", "MOT17/MOT20 (трекер)"],
+            "id": HeadMethod.id, "label": HeadMethod.label, "name": HeadMethod.name,
+            "title": "Метод D — детектор голов + трекер голов",
+            "desc":  "Камера над дверью, плотная очередь. Сверху тела в очереди сливаются, "
+                     "а головы остаются раздельными: детектор обучен на реальной разметке "
+                     "голов PAMELA-UANDES, трекер держит ID через частичное перекрытие.",
+            "pros":  ["Работает в плотной очереди (F1 0.97 на тесте PAMELA)",
+                      "Лёгкая модель, ~180 кадров/с"],
+            "cons":  ["Обучен на одной камере — на другой нужно дообучение",
+                      "Нужен ракурс строго сверху"],
+            "datasets": ["PAMELA-UANDES (Velastin et al. 2020), клипы R1–R3",
+                         "COCO (претрейн YOLO11n)"],
             "needs_gpu": True,
-        },
-        {
-            "id": PoseMethod.id, "label": PoseMethod.label, "name": PoseMethod.name,
-            "title": "Метод B — Top-down + YOLO-Pose",
-            "desc":  "Камера над дверью. Считается не рамка, а анатомическая точка — "
-                     "середина плеч. В толпе плечи не сливаются, как рамки.",
-            "pros":  ["Устойчив к перекрытию тел", "Так работают промышленные APC"],
-            "cons":  ["Нужен ракурс сверху", "Тяжелее модель, чем в методе A"],
-            "datasets": ["COCO-Pose (претрейн)", "PIROPO (top-view)", "AVSS 2007 (подсчёт на линии)"],
-            "needs_gpu": True,
-        },
-        {
-            "id": DepthMethod.id, "label": DepthMethod.label, "name": DepthMethod.name,
-            "title": "Метод C — Depth / вычитание фона",
-            "desc":  "Без нейросети. Яркость трактуется как карта высот, фон вычитается, "
-                     "считаются движущиеся «массы». Так работают ToF-счётчики.",
-            "pros":  ["Очень быстро, только CPU", "Не зависит от освещения и одежды"],
-            "cons":  ["Не отличает человека от сумки", "Слипание объектов в толпе"],
-            "datasets": ["Калибровка на своих записях", "NYU Depth / SUN RGB-D (претрейн сегментации)"],
-            "needs_gpu": False,
         },
     ],
     "en": [
         {
-            "id": BBoxMethod.id, "label": BBoxMethod.label, "name": BBoxMethod.name,
-            "title": "Method A — RGB + YOLO + ByteTrack",
-            "desc":  "An ordinary saloon camera. YOLO finds people, ByteTrack keeps their "
-                     "ids, and the bottom of each box crossing the line is the count.",
-            "pros":  ["Works with any camera already fitted", "Nothing extra to install"],
-            "cons":  ["Occlusion at rush hour", "Accuracy drops in a dense crowd"],
-            "datasets": ["COCO (pretrain)", "CrowdHuman (fine-tune)", "MOT17/MOT20 (tracker)"],
+            "id": HeadMethod.id, "label": HeadMethod.label, "name": HeadMethod.name,
+            "title": "Method D — head detector + head tracker",
+            "desc":  "A camera above the door and a dense queue. From above the bodies in a "
+                     "queue merge but the heads stay apart: the detector is trained on "
+                     "PAMELA-UANDES's real head labels, and the tracker holds ids through "
+                     "partial occlusion.",
+            "pros":  ["Holds up in a dense queue (F1 0.97 on the PAMELA test clips)",
+                      "Light model, ~180 fps"],
+            "cons":  ["Trained on one camera — another needs fine-tuning",
+                      "Needs a straight-down view"],
+            "datasets": ["PAMELA-UANDES (Velastin et al. 2020), clips R1–R3",
+                         "COCO (YOLO11n pretrain)"],
             "needs_gpu": True,
-        },
-        {
-            "id": PoseMethod.id, "label": PoseMethod.label, "name": PoseMethod.name,
-            "title": "Method B — Top-down + YOLO-Pose",
-            "desc":  "A camera above the door. It counts an anatomical point — the midpoint "
-                     "of the shoulders — rather than a box, and shoulders stay apart in a "
-                     "crowd where boxes merge.",
-            "pros":  ["Holds up when bodies overlap", "How commercial APC systems work"],
-            "cons":  ["Needs an overhead view", "Heavier model than method A"],
-            "datasets": ["COCO-Pose (pretrain)", "PIROPO (top-view)", "AVSS 2007 (line counting)"],
-            "needs_gpu": True,
-        },
-        {
-            "id": DepthMethod.id, "label": DepthMethod.label, "name": DepthMethod.name,
-            "title": "Method C — Depth / background subtraction",
-            "desc":  "No neural network. Luminance is read as a height map, the background "
-                     "is subtracted and the moving masses are counted — the way ToF "
-                     "counters work.",
-            "pros":  ["Very fast, CPU only", "Unaffected by lighting or clothing"],
-            "cons":  ["Cannot tell a person from a bag", "Blobs merge in a crowd"],
-            "datasets": ["Calibrated on your own footage", "NYU Depth / SUN RGB-D (segmentation pretrain)"],
-            "needs_gpu": False,
         },
     ],
 }
@@ -244,7 +172,7 @@ def method_info(lang: str = "ru") -> list[dict]:
 
 @dataclass
 class RunConfig:
-    method:      str   = "bbox"
+    method:      str   = "head"
     line_ratio:  float = 0.55
     orientation: str   = "h"      # "h" | "v"
     invert:      bool  = False
@@ -258,14 +186,10 @@ class RunConfig:
     min_age:     int   = 3
     write_video: bool  = True
     weights:     str   = ""       # override model weights (e.g. a fine-tune)
-    # Inference size. Must match what the weights were trained at: running a
-    # 512-trained fine-tune at 640 made it emit ~48 boxes/frame instead of ~4.
+    # Inference size. Must match what the weights were trained at.
     imgsz:       int   = 0        # 0 = the method's own default
-    # Method A only: "bottom" assumes feet on the floor (side-on camera),
-    # "center" suits a camera looking straight down. "" keeps the method default.
-    point:       str   = ""
-    # Tracker yaml for methods A/B. "" = ultralytics' stock bytetrack.yaml.
-    tracker:     str   = ""
+    point:       str   = ""       # unused by method D; kept for RunConfig shape
+    tracker:     str   = ""       # unused by method D; kept for RunConfig shape
     # Method-specific knobs, validated against that method's PARAMS schema and
     # handed straight to its constructor. Keeps per-method tuning out of the
     # shared config while still travelling through one code path.
@@ -419,8 +343,5 @@ for _info in METHOD_INFO:
 
 
 def suggest_config(video_path: str, method: str) -> RunConfig:
-    """Reasonable defaults for a clip: depth needs a lower threshold on colour video."""
-    cfg = RunConfig(method=method)
-    if method == "depth" and is_color_video(video_path):
-        cfg.conf = 0.35
-    return cfg
+    """Reasonable defaults for a clip."""
+    return RunConfig(method=method)
