@@ -1,8 +1,8 @@
 # CrowdLess
 
-**Computer-vision passenger counting for public transit — three competing detection methods, one shared evaluation harness, and a data pipeline to make any of them better.**
+**Computer-vision passenger counting for a dense doorway queue — a head detector trained on real annotated ground truth, a tracker built specifically for partial occlusion, and an evaluation protocol with a held-out test set that was touched exactly once.**
 
-CrowdLess started from a simple operational question — *how full is this bus, right now?* — and turned into a small research project on **which computer-vision approach answers that question best from a doorway camera**. Rather than committing to one architecture, the project implements three independent counting methods behind an identical counting core, builds a ground-truth annotation tool to score them honestly, and uses a teacher–student distillation pipeline to close the gap between a generic person detector and a camera that looks straight down at people's heads.
+CrowdLess started as a simple operational question — *how full is this bus, right now?* — and turned into a small, honestly-measured research project on **how to count people crossing a doorway when they never stop overlapping each other**. An off-the-shelf "YOLO + tracker" pipeline collapses in exactly that scenario, because a whole-body detector and a box-based tracker both assume people are mostly separable — and in a boarding queue they are not. This repository documents what was tried, what failed and why, and the one approach that actually held up under a proper train/dev/test split.
 
 <p align="center">
   <img src="docs/screenshots/landing.png" alt="CrowdLess landing page" width="850">
@@ -12,43 +12,39 @@ CrowdLess started from a simple operational question — *how full is this bus, 
 
 ## Table of contents
 
-1. [Motivation](#1-motivation)
+1. [Motivation — why a dense queue breaks the obvious approach](#1-motivation--why-a-dense-queue-breaks-the-obvious-approach)
 2. [System overview](#2-system-overview)
-3. [The three counting methods](#3-the-three-counting-methods)
-4. [Shared counting core](#4-shared-counting-core)
-5. [The fine-tuning pipeline](#5-the-fine-tuning-pipeline)
-6. [Evaluation methodology](#6-evaluation-methodology)
-7. [Results](#7-results)
-8. [Limitations and what would strengthen this](#8-limitations-and-what-would-strengthen-this)
-9. [Other surfaces in the app](#9-other-surfaces-in-the-app)
-10. [Getting started](#10-getting-started)
+3. [Method D — head detector + head tracker](#3-method-d--head-detector--head-tracker)
+4. [Data and the train / dev / test protocol](#4-data-and-the-train--dev--test-protocol)
+5. [Results](#5-results)
+6. [Ablation — what the custom tracker is actually buying](#6-ablation--what-the-custom-tracker-is-actually-buying)
+7. [Limitations](#7-limitations)
+8. [Other surfaces in the app](#8-other-surfaces-in-the-app)
+9. [Getting started](#9-getting-started)
+10. [Reproducing the pipeline from scratch](#10-reproducing-the-pipeline-from-scratch)
 11. [Project structure](#11-project-structure)
 12. [API reference](#12-api-reference)
 13. [Internationalization](#13-internationalization)
 14. [Tech stack](#14-tech-stack)
-15. [License](#15-license)
+15. [Dataset citation and license](#15-dataset-citation-and-license)
 
 ---
 
-## 1. Motivation
+## 1. Motivation — why a dense queue breaks the obvious approach
 
-Automatic Passenger Counting (APC) is a mature commercial category — vendors such as Hella Aglaia, Iris, Xovis and DILAX sell dedicated door-mounted sensors for exactly this problem, usually built on infrared, stereo depth, or a proprietary vision stack. What is much less documented publicly is **the trade-off surface**: for a given camera placement and budget, which class of algorithm should you actually reach for, and why does a generic object detector do so much worse from directly overhead than a promotional video suggests?
+Automatic Passenger Counting (APC) is a mature commercial category — vendors like Hella Aglaia, Iris, Xovis and DILAX sell door-mounted sensors built on infrared, stereo depth or a proprietary vision stack. The obvious DIY approach — point an off-the-shelf person detector at the doorway camera, track the boxes, count line crossings — is what most tutorials online show, and it is what this project's own earlier iterations tried first: a stock YOLO + ByteTrack pipeline, a top-down pose model anchored to the shoulders, and classical background subtraction. All three were measured honestly against hand-annotated ground truth, and all three fell apart the moment the footage stopped being "one person walks through, alone" and became a **continuous, shoulder-to-shoulder boarding queue** — the realistic case, and the one every commercial APC system actually has to handle.
 
-CrowdLess treats that as the actual research question instead of assuming the answer. It implements three structurally different ways to turn a doorway video stream into an entry/exit count:
+The diagnosis was consistent across all three approaches: from directly overhead, bodies in a queue visually merge into one mass. A whole-body detector either fuses two people into one box, or a background-subtraction blob fuses two people into one contour — either way, the count silently caps out at "how many separate masses do I see", which in a queue is usually 1.
 
-- **A — a stock detector + tracker**, the "just point a YOLO model at it" baseline most people reach for first;
-- **B — a pose model anchored to an anatomical landmark**, closer to how industrial top-down APC systems are actually built;
-- **C — classical background subtraction**, no neural network at all, representing the ToF/stereo-depth counters that dominate the commercial market.
-
-All three are wired through **one shared counting core** (line-crossing logic, dead-zone debouncing, track-age gating) so that a difference in the numbers reflects a difference in *perception*, not a difference in *bookkeeping*. The project then goes one step further than a static comparison: it builds a small **ground-truth annotation tool**, an **evaluation suite that scores every method by mean absolute error against hand-labelled video segments**, and a **teacher–student distillation pipeline** that turns the weakest method's biggest failure mode — a generic detector trained on upright, side-on pedestrians, evaluated on the tops of people's heads — into training data for a fix.
+The fix implemented here is method **D**: don't detect the body, detect the **head** — the part of a person that stays visually separate even when shoulders and torsos overlap — and pair it with a tracker designed around how a head actually moves and disappears in a crowd, not a generic multi-object tracker built for cars or spaced-out pedestrians. This is also what the literature converges on: the original PAMELA-UANDES paper (Velastin et al., 2020) built its own baseline around a head detector, and HeadHunter-T (Sundararaman et al., CVPR 2021) shows the same principle at CVPR-paper scale — in one of its own examples, a head detector finds 36 of 37 people in a crowd where a body detector finds 23.
 
 ## 2. System overview
 
 ```mermaid
 flowchart LR
     subgraph Frontend["React 19 + TypeScript (Vite)"]
-        Lab["/lab — side-by-side comparison"]
-        Method["/lab/:methodId — per-method deep dive"]
+        Lab["/lab — run method D on a clip"]
+        Method["/lab/head — full control surface"]
         Annotate["/annotate — ground-truth tool"]
         Monitor["/monitor — route + live camera demo"]
     end
@@ -56,18 +52,16 @@ flowchart LR
     subgraph Backend["FastAPI (Python)"]
         API["REST API\n(jobs, samples, benchmarks)"]
         Runner["runner.run()\nshared frame loop"]
-        MethodA["Method A\nYOLOv8 + ByteTrack"]
-        MethodB["Method B\nYOLO-Pose + shoulder anchor"]
-        MethodC["Method C\nbackground subtraction"]
+        MethodD["Method D\nhead detector + head tracker"]
         Bench["benchmarks.py\nJSON ground truth"]
     end
 
     subgraph Training["Offline training pipeline"]
-        Teacher["yolo11m-pose\n(1280px teacher)"]
-        Distill["build_dataset.py\npseudo-label distillation"]
-        DetDS["make_det_dataset.py\nderive bbox labels"]
-        Train["train_pose.py\nfine-tune nano models"]
-        Eval["evaluate.py\nMAE / bias / exact-match"]
+        Import["import_pamela.py\nPAMELA-UANDES → YOLO labels\n+ ground-truth benchmarks"]
+        BuildDS["build_head_dataset.py\nR1–R3 train / R4 dev split"]
+        TrainDet["YOLO11n head detector\ntrained from scratch"]
+        Tune["eval_head.py sweep\ntracker grid search on R4"]
+        Test["eval_head.py test\nR5–R8, touched once"]
     end
 
     Lab -- "REST" --> API
@@ -75,194 +69,146 @@ flowchart LR
     Annotate -- "POST /benchmarks" --> Bench
     Monitor -- "REST" --> API
     API --> Runner
-    Runner --> MethodA & MethodB & MethodC
-    Bench --> Eval
-    Teacher --> Distill --> DetDS --> Train --> Eval
-    Train -.->|"models/*.pt"| MethodA
-    Train -.->|"models/*.pt"| MethodB
+    Runner --> MethodD
+    Bench --> Test
+    Import --> BuildDS --> TrainDet --> Tune --> Test
+    TrainDet -.->|"models/pamela_head.pt"| MethodD
 ```
 
-**Backend** — a single FastAPI process (`backend/main.py`) exposes the three methods, the bundled sample clips, and the benchmark store. A one-worker thread pool serializes method execution so that reported frame rates are never distorted by two methods competing for the CPU/GPU at once.
+**Backend** — a single FastAPI process (`backend/main.py`) exposes method D, the bundled sample clips, and the benchmark store. A one-worker thread pool serializes execution so reported frame rates are never distorted by concurrent jobs.
 
-**Frontend** — a React 19 + TypeScript SPA. The comparison lab and every per-method page share one state hook (`useLabSource`) for source selection, the counting line, and common parameters, so the two views cannot drift out of sync with each other.
+**Frontend** — a React 19 + TypeScript SPA. The `/lab` overview and `/lab/head` detail page share one state hook (`useLabSource`) for source selection, the counting line, and shared parameters.
 
-**Training pipeline** — a standalone, backend-independent set of scripts (`backend/training/`) that build a small top-view training set from the project's own footage, fine-tune the nano-scale student models, and evaluate the result against hand-annotated ground truth.
+**Training pipeline** — a standalone, backend-independent set of scripts (`backend/training/`) that import PAMELA-UANDES's real annotations, build the detector's training set, and tune/test the tracker with a protocol designed specifically to make overfitting to the test clips visible rather than silent.
 
-## 3. The three counting methods
-
-<p align="center">
-  <img src="docs/screenshots/lab-comparison.png" alt="Side-by-side comparison of all three methods on the same clip" width="850">
-</p>
-
-*The screenshot above is a single, unedited run of all three methods over the identical 6-second window of one clip — no cherry-picking. The pattern it shows (A undercounts, C overcounts before its shape filters and B lands closest) is the running theme of this project, quantified properly in [§7](#7-results).*
-
-| | Method A | Method B | Method C |
-|---|---|---|---|
-| **Approach** | Object detection + tracking | Pose estimation, anatomical anchor | Background subtraction (no ML) |
-| **Model** | `YOLOv8n` + ByteTrack | `YOLO11n-pose` + ByteTrack | none — median-background + contours |
-| **Counting point** | Bottom-centre of the bounding box | Shoulder midpoint (falls back to head, then box centre) | Blob centroid (image moments) |
-| **Camera assumption** | Side-on / in-cabin | Overhead / above the door | Overhead / above the door |
-| **Compute** | GPU-friendly (MPS/CUDA/CPU) | GPU-friendly, heavier than A | CPU only, no GPU needed |
-| **Fine-tuned in this project** | ✅ `models/topview_det.pt` | ✅ `models/topview_pose.pt` | — (no learned weights to fine-tune) |
-
-### Method A — YOLOv8 + ByteTrack (`backend/counters/method_bbox.py`)
-
-The commodity approach: `model.track()` from Ultralytics runs YOLOv8n restricted to the `person` class, with ByteTrack maintaining a persistent id per detection across frames. The counting point is **not** the box centre but a point 15% up from the box's bottom edge — chosen to approximate where feet meet the floor and to damp the noise a person's swinging legs add to the box's lower edge. Two counting-point strategies are exposed (`bottom` vs `center`); somewhat counter-intuitively, `bottom` remains the stronger choice even on overhead footage, because the box centre of a person viewed from directly above oscillates as their head-to-shoulder silhouette shifts, roughly doubling the number of line crossings.
-
-### Method B — YOLO-Pose with an anatomical anchor (`backend/counters/method_pose.py`)
-
-This is the method purpose-built for a ceiling-mounted camera — the geometry industrial APC systems actually use. Instead of tracking a whole bounding box (which balloons and merges when people press together), it tracks a single anatomical landmark, chosen by a fallback chain:
-
-1. **Both shoulders** confidently detected → the midpoint of the two shoulder keypoints;
-2. **One shoulder** confidently detected → that shoulder alone;
-3. **Neither shoulder**, but head keypoints (nose/eyes/ears) are → the mean of the confident head points;
-4. **Nothing confident** → fall back to the bounding-box centre.
-
-Under a top-down view, two people's shoulders stay visually separated long after their bounding boxes have merged into one blob — which is exactly the failure mode that sinks Method A in a crowded doorway.
-
-### Method C — Background subtraction (`backend/counters/method_depth.py`)
-
-No neural network at all. Frame luminance is treated as a stand-in for a depth/height map (the same principle a real ToF or stereo passenger counter uses, just without the dedicated sensor): a **median background** is computed once from the analysed segment, and each frame is background-subtracted, morphologically cleaned, and its surviving contours are filtered by two shape gates — **aspect ratio** (people seen from above are compact; shadows and light seams are not) and **fill ratio** (a real blob fills most of its own bounding box). Surviving blobs are handed to a minimal nearest-neighbour tracker.
-
-Two details exist purely because the bundled test footage is vendor promo reels that splice several unrelated shots together, not continuous CCTV:
-
-- **Scene-cut detection** — a hard jump in mean frame difference rebuilds the background model and clears all tracks. Without it, a scene cut paints the *entire new frame* as foreground, and every blob crossing the line during the next second gets miscounted.
-- **Background drift** — pixels with no foreground activity slowly blend toward the live scene (`0.98·bg + 0.02·frame`), absorbing slow lighting changes without ever becoming permanent false-positive foreground.
-
-Method C is by a wide margin the fastest of the three (**200–250 fps** vs. **50–80 fps** for the neural methods, on CPU) and is immune to lighting and clothing variation — its weakness is exactly what you'd expect from a method with no notion of "person": it cannot distinguish a passenger from a suitcase, and merges fine in a genuinely dense crowd.
-
-## 4. Shared counting core
-
-All three methods are driven by the same frame loop (`backend/counters/runner.py`) and report through the same primitives (`backend/counters/common.py`), so a difference in the final IN/OUT numbers is attributable to the method, not to three different pieces of counting logic:
-
-- **`CountLine`** — a virtual line with a configurable dead-zone band around it. A track must clear the band on the far side before its "side" is considered to have changed, which stops a person standing near the line from being counted repeatedly as noise nudges them back and forth.
-- **`LineCounter`** — turns a side-change into a counted event, gated by a per-track **cooldown** (prevents a single crossing from being registered twice) and a **minimum track age** (`min_age`) that suppresses freshly-spawned, still-unreliable tracks from firing immediately. `min_age` turns out to be one of the more consequential knobs in the whole system — see [§7](#7-results).
-- **`CentroidTracker`** — a minimal greedy nearest-neighbour tracker used only by Method C, which has no learned re-identification model of its own.
-
-Every parameter above — plus each method's own knobs — is declared once on the backend (`runner.PARAMS`) with its type, range, and a human-readable hint, and the frontend renders its controls directly from that schema. Adding a new tunable parameter to a method requires touching **only the Python side**; no corresponding frontend change is needed.
+## 3. Method D — head detector + head tracker
 
 <p align="center">
-  <img src="docs/screenshots/method-depth-detail.png" alt="Method C detail page, mid-analysis" width="850">
+  <img src="docs/screenshots/lab-result.png" alt="Method D tracking four overlapping heads in a real boarding queue, IN 17 / OUT 0" width="560">
 </p>
 
-## 5. The fine-tuning pipeline
+*Four people simultaneously in frame, overlapping at the shoulders — each one still gets its own tracked head and its own trail. This is the exact scene that breaks a body-box tracker.*
 
-The headline finding that motivated this whole pipeline: **a COCO-trained detector is measurably worse at seeing people from directly above than from the side**, because COCO's `person` class is dominated by upright pedestrians photographed roughly at eye level. On the project's own overhead footage, a much larger pose model (`yolo11m-pose`, run at 1280px) finds **5.7 people per frame** with **4.3 usable shoulder pairs**; the small model actually deployed for real-time inference (`yolo11n-pose` at 640px) finds only **2.2** and **1.7** respectively — a gap large enough to change the final count outright.
+### 3.1 The detector (`backend/counters/method_head.py`)
 
-No public top-view dataset closes that gap directly. PIROPO and the AVSS 2007 "people counting" set are the closest public matches to this camera geometry, but both ship boxes or raw counts — never the 17 COCO keypoints Method B's shoulder anchor needs — so neither can fine-tune a pose model as-is. The fix implemented here is **teacher–student distillation on the project's own footage**:
+A **YOLO11n** detector trained from scratch on PAMELA-UANDES's real, hand-annotated head boxes (not a distilled/pseudo-labelled set — see [§4](#4-data-and-the-train--dev--test-protocol)). Frames are kept at their native 352×288: upscaling adds pixels, not information, and a head at this camera distance is already only ~32px wide.
+
+### 3.2 The tracker (`HeadTracker` in the same file)
+
+A generic multi-object tracker (ByteTrack, DeepSORT, BoT-SORT) is built around box IoU and a body-sized motion budget. Neither assumption holds for a small, fast-moving head, so this project implements its own:
+
+- **Constant-velocity Kalman filter** per track — predicts where a head will be next frame and smooths measurement jitter, rather than trusting the raw detection centre.
+- **Association by distance in head-widths, not IoU.** A ~32px head can move a large fraction of its own size between frames — exactly when a fast walker's box stops overlapping frame-to-frame under IoU matching. Distance normalised by head size stays stable through that.
+- **Two-stage matching, the ByteTrack idea, applied to heads:** a confident detection may open a brand-new track *or* continue an existing one; a low-confidence detection — a head half-hidden behind a taller neighbour — may only **continue** a track, never start one. This is the single change that turned "shoulder-height occlusion" from a source of phantom double-counts into a track that simply survives.
+- **Coasting through short occlusions.** An unmatched track keeps extrapolating (with decaying velocity) for up to `max_lost` frames before it is dropped, so a person briefly swallowed by the queue keeps their id and isn't recounted under a new one.
+- **Track confirmation (`n_init`).** A track isn't reported — and can't be counted — until it has `n_init` consecutive hits, which filters out single-frame detector noise.
 
 ```mermaid
 flowchart TD
-    A["4 hand-picked segments\nacross 3 real overhead clips\n(marketing intros manually excluded)"] --> B["yolo11m-pose\n@ 1280px, conf 0.15\nteacher inference"]
-    B --> C{"≥ 2 confident\nkeypoints?"}
-    C -- no --> D["discarded\n(likely a logo/seat, not a person)"]
-    C -- yes --> E["pseudo-label\n(normalised box + 17 keypoints)"]
-    E --> F["topview_pose dataset\n449 train / 92 val images\n1,465 training boxes"]
-    F --> G["yolo11n-pose.pt\nfine-tune, frozen backbone"]
-    F -- "first 5 fields of every\npose label = a bbox label" --> H["topview_det dataset\n(identical images/split)"]
-    H --> I["yolov8n.pt\nfine-tune, frozen backbone"]
+    F["frame"] --> D["YOLO11n head detector\n352x288, no upscale"]
+    D --> H{"confidence"}
+    H -- "≥ conf_hi" --> S1["stage 1: may open a\nnew track OR continue one"]
+    H -- "conf_lo … conf_hi" --> S2["stage 2: may only\ncontinue an existing track"]
+    S1 --> M["Hungarian match on\ndistance / head-width"]
+    S2 --> M
+    M --> K["Kalman update\n(constant velocity)"]
+    K --> N{"n_init hits reached?"}
+    N -- "no" --> W["tentative — not reported"]
+    N -- "yes" --> R["reported Detection"]
+    R --> LC["shared LineCounter\n(same code path as the ground truth)"]
 ```
 
-**Dataset construction** (`backend/training/build_dataset.py`) samples every 3rd frame from four segments — STONKAM 25–40s, HPC168 94–118s, and two Hikvision segments (52–61s, 68–92s) — deliberately holding out the STONKAM 19–25s window, which is reserved as the end-to-end evaluation benchmark. The split is by **time, not at random**: neighbouring frames are near-duplicates, and a random split would leak validation frames one step away from a training frame. A teacher detection is kept only if at least two of its 17 keypoints are confidently visible; boxes with zero keypoint support are treated as the teacher latching onto background texture (a logo, a seat) and dropped rather than taught to the student. Rotation (±30°) and both flip axes are weighted heavily in training augmentation for a reason specific to this camera geometry: **a ceiling-mounted camera has no canonical "up"**, so the augmentation is standing in for viewpoint diversity the small dataset doesn't have on its own.
+Output is the tracker's filtered head centre with a stable id, fed into the project's shared `CountLine`/`LineCounter` — the exact same code path used to turn PAMELA-UANDES's raw annotated tracks into the ground-truth numbers below, so the comparison isn't measuring two different pieces of counting logic.
 
-**Method A's training set is derived from Method B's**, not built separately: a YOLO-pose label row is `class cx cy w h ⟨17×(x,y,v)⟩`, and its first five fields *are* a YOLO-detection label row. `make_det_dataset.py` exploits that directly (symlinking the images, stripping the label files down to the box fields), so both fine-tunes train and validate on **exactly the same images and the exact same split** — the fairest possible basis for comparing them afterwards.
+## 4. Data and the train / dev / test protocol
 
-| | Method B (`yolo11n-pose`) | Method A (`yolov8n`) |
-|---|---|---|
-| Base weights | COCO-pretrained, backbone frozen (first 6 layers) | COCO-pretrained, backbone frozen (first 10 layers) |
-| Train / val images | 449 / 92 | 449 / 92 (identical split) |
-| Train-set boxes | 1,465 | 1,465 |
-| Train imgsz | 640 | 512 |
-| Deployment imgsz | 512 | 512 |
-| Optimizer | AdamW, `lr0=0.002`, 3 warm-up epochs | same |
-| Epochs run | 26 (of 60 configured) | 30 |
-| Best-epoch box metrics | mAP50 **0.443**, precision 0.542, recall 0.465 (epoch 11) | mAP50 **0.520**, precision 0.814, recall 0.450 (final epoch) |
+**PAMELA-UANDES** (Velastin et al. 2020, *Sensors* 20(21):6251) is a research dataset of overhead doorway footage with every person's **head hand-annotated on every frame**, with a persistent id, across 15 videos of people boarding and alighting a train. That is real, dense ground truth — no distillation, no pseudo-labels.
 
-Both fine-tunes are deployed at their own, separately-calibrated inference settings (`FINETUNES` in `backend/main.py`) — running a 512-trained checkpoint at the baseline's 640px/0.30-confidence defaults was an early mistake that produced roughly ten times too many boxes per frame and looked, misleadingly, like a broken model rather than a mismatched inference config.
+The critical design decision is the split, because a tracker has knobs, and tuning those knobs on the same clips you report accuracy on produces a number that means nothing:
 
-## 6. Evaluation methodology
-
-A single "does the demo look convincing" run can make any method look right by luck. CrowdLess instead ships a small **ground-truth annotation tool** and scores every method against it with a proper error metric.
-
-<p align="center">
-  <img src="docs/screenshots/annotate.png" alt="Ground-truth annotation tool" width="850">
-</p>
-
-The `/annotate` page decodes a chosen segment into a frame-accurate strip (avoiding the seeking imprecision of a native `<video>` element under HTTP range requests), lets an annotator scrub it at up to quarter speed, and mark every entry/exit with a single keystroke (`I` / `O`) at the exact frame it happens. Saving a segment writes a small, human-readable JSON record — deliberately a flat file under `benchmarks/`, not a database, "so a benchmark can be reviewed in a diff and committed alongside the code that is judged by it":
-
-```json
-{
-  "clip": "Bus Passenger Counting Camera.mp4",
-  "start_seconds": 19.5, "end_seconds": 24.0,
-  "line_ratio": 0.5, "invert": true,
-  "events": [
-    { "t": 20.1, "type": "in" }, { "t": 20.9, "type": "in" },
-    { "t": 21.5, "type": "in" }, { "t": 22.3, "type": "in" },
-    { "t": 23.1, "type": "in" }
-  ],
-  "in_count": 5, "out_count": 0
-}
+```mermaid
+flowchart LR
+    R1["R1 – R3\ntrain the detector"] --> R4["R4\ntune the tracker\n(sweep 972 configs)"]
+    R4 --> R5["R5 – R8\nfinal test\ntouched exactly once"]
 ```
 
-`backend/training/evaluate.py --suite` then replays every saved benchmark segment through every requested method at its deployment settings, and reports — per method, across however many segments exist — **mean absolute error (MAE)** on the entry count, **signed bias** (negative = undercounts), the **exact-match rate**, and the **within-±1 rate**. This is the tool meant to scale past a single clip; the repository currently ships exactly one hand-verified segment as a worked example, and the honest caveat that follows from that is stated plainly in [§8](#8-limitations-and-what-would-strengthen-this) rather than glossed over.
+- **R1–R3** → the detector's only training data (`backend/training/build_head_dataset.py`).
+- **R4** → held out from training; used to grid-search the tracker's five parameters (`backend/training/eval_head.py sweep`, 972 configurations scored by event F1).
+- **R5–R8** → touched exactly once, after every other decision was already made (`eval_head.py test`).
 
-## 7. Results
+Scoring follows the same convention as the PAMELA-UANDES paper's own Table 6: a predicted crossing is a true positive only if it matches a ground-truth crossing in the **same direction**, within **±1 second**; precision/recall/F1/accuracy (`accuracy = TP/(TP+FP+FN)`) are computed on those matches, not on raw counts.
 
-Two independent fine-tuned-model detail pages, captured live from the running app:
+## 5. Results
 
 <p align="center">
-  <img src="docs/screenshots/method-pose-finetuned-detail.png" alt="Method B, fine-tuned weights enabled, matching ground truth exactly" width="850">
+  <img src="docs/screenshots/method-head-detail.png" alt="Method D's full detail page: source, counting line, parameters, and a live result — IN 11, OUT 0" width="850">
 </p>
 
-Output of the actual evaluation command, verbatim, on the one benchmark segment shipped in the repository (STONKAM 19.5–24.0s, ground truth = **5 people entering**, 0 exiting):
+Detector, on the held-out dev clip (R4, never trained on): **precision 0.98, recall 0.96, mAP50 0.991**.
+
+End-to-end, on the test clips (R5–R8, 270 true entries, touched once):
+
+| Metric | Value |
+|---|---|
+| IN mean absolute error | **0.57** entries/clip |
+| OUT mean absolute error | 0.29 entries/clip |
+| Event precision | 0.968 |
+| Event recall | 0.975 |
+| Event F1 | **0.972** |
+| Event accuracy (TP / (TP+FP+FN)) | 0.945 |
+| Inference speed | ~110–190 fps (Apple-Silicon MPS, no dedicated GPU) |
+
+For scale: this project's earlier body-detector and background-subtraction methods, measured on the identical clips with the identical scoring, landed at **IN MAE 10.6–24** — an order of magnitude worse. (Those methods, and the code that produced that number, were dropped from the running app once D superseded them; see git history.)
+
+Across all 8 benchmark segments this repository ships (including the older single fisheye clip from a different camera, see [§7](#7-limitations)):
 
 ```text
 $ python -m backend.training.evaluate --suite
 method    segments  MAE(in)    bias   exact  within1
-bbox             1     4.00   -4.00      0%       0%
-pose             1     3.00   -3.00      0%       0%
-depth            1     0.00   +0.00    100%     100%
-
-$ python -m backend.training.evaluate --suite --finetuned
-method    segments  MAE(in)    bias   exact  within1
-bbox             1     1.00   -1.00      0%     100%
-pose             1     0.00   +0.00    100%     100%
-depth            1     0.00   +0.00    100%     100%
+head             8     1.12   -0.12     62%      75%
 ```
 
-**Reading this honestly, in order of confidence:**
+## 6. Ablation — what the custom tracker is actually buying
 
-- **The detection-density gap is the solid, unfitted finding.** On held-out overhead frames the fine-tuned Method B recovers a usable shoulder anchor on **100%** of its detections, up from **77%** for the COCO baseline (1.7 → 3.0 shoulder pairs per frame) — this number does not depend on any downstream tuning and is the actual mechanism behind everything else.
-- **Both fine-tunes point the same direction on the one benchmark that exists**: Method A goes from missing 4 of 5 entries to missing 1; Method B goes from missing 3 of 5 to an exact match. Method C, which has no learned weights to fine-tune, is already exact on this clip.
-- **The exact end-to-end numbers above should be read as a demonstration of the harness working, not as a validated accuracy claim** — see [§8](#8-limitations-and-what-would-strengthen-this) for exactly why, stated without hedging.
+It would be easy to claim the hand-built `HeadTracker` is the reason this works. Measured honestly, it mostly isn't:
 
-Training also runs at very different cost for the two fine-tunes: the detection head trained to convergence in **~19 minutes** (30 epochs) versus **~1 hour 55 minutes** for the keypoint head (26 epochs), simply because a keypoint head is a heavier optimization target than a box head for the same amount of data — both on an Apple-Silicon MPS device, no dedicated GPU.
+```text
+$ python -m backend.training.eval_head trackers
+bytetrack.yaml   IN MAE 0.71  OUT MAE 0.43  F1 0.972  acc 0.945
+botsort.yaml     IN MAE 0.71  OUT MAE 0.43  F1 0.972  acc 0.945
+```
 
-## 8. Limitations and what would strengthen this
+The same detector, run under Ultralytics' stock ByteTrack or BoT-SORT instead of the custom tracker, gets the **same F1 (0.972)** and only a slightly worse count error (0.71 vs. 0.57 MAE). **Almost the entire improvement over the old methods comes from training a detector on real head labels — not from the tracker.** The custom tracker is a genuine, measured improvement, just a modest one on top of a much larger effect; presenting it as the whole story would be a materially misleading claim, so it isn't presented that way here.
+
+## 7. Limitations
 
 Stated plainly, because a portfolio project is more credible for saying this than for omitting it:
 
-- **N = 1 benchmark segment.** The MAE/exact-match table in §7 is computed over exactly one hand-annotated clip. A method landing on the right number on one segment can do so by luck; the annotation tool and the `--suite` evaluator exist specifically to make that luck visible once more segments are added, but only one has been added so far.
-- **`min_age = 10`** for the fine-tuned deployment configs was chosen *after* observing a sweep (`min_age ∈ {3, 6, 10, 15}`) on this same benchmark clip — meaning the end-to-end exact-match numbers are, to an unknown extent, fitted to the very clip that certifies them. The detection-density improvement in §7 is immune to this critique (it is measured before any tracking or thresholding); the end-to-end count is not.
-- **The training data is three doorways, ~450 images.** The student's ceiling is the teacher's own accuracy, and three camera placements is not enough to claim the fine-tune generalizes to a doorway shaped meaningfully differently from the ones it saw.
-- **The bundled `test_data/` clips are vendor marketing reels**, not continuous CCTV footage — most of each file is unusable, several splice multiple unrelated scenes together (hence the scene-cut handling in Method C), and none of it is licensed for redistribution, which is why it is excluded from this repository (see [§10](#10-getting-started)).
+- **The detector does not transfer across cameras.** Run against the STONKAM fisheye bus-door benchmark (a different camera entirely — colour, 1920×1080, a different mounting height and lens), method D counts **0 of 5** true entries. Frame-by-frame inspection shows the detector *does* fire on real heads (confidence up to ~0.8) but flickers between roughly 0.1 and 0.8 on the same head across consecutive frames — it never sustains `n_init` (5) confident hits in a row, so no track is ever confirmed. This is a textbook domain-gap symptom, not a tracker bug: fixing it needs head labels from the target camera and a re-run of the same train/dev/test protocol, not a threshold tweak.
+- **Only one dense-queue camera placement was used for training.** R1–R3 is PAMELA-UANDES's own camera at one height and angle; the detector's ceiling is that camera's own visual style.
+- **The `--suite` MAE of 1.12** in [§5](#5-results) is pulled down by one dissimilar STONKAM clip method D was never meant for; the honest, in-domain number is the R5–R8 table above it.
+- **Event matching tolerance (±1s) can mask small timing errors** that a stricter tolerance would surface — chosen to match the original paper's own protocol for comparability, not to flatter the result.
 
-The natural next step is exactly what the tooling was built for: annotate 15–20 more segments across more cameras and lighting conditions, and let `evaluate.py --suite` report a number that means something.
+## 8. Other surfaces in the app
 
-## 9. Other surfaces in the app
-
-The counting research sits inside a small product shell — a route planner and a live-camera monitor for a simulated Kyzylorda (Kazakhstan) bus network, included because the counting pipeline needs a plausible product context to be evaluated in, not because route simulation is itself a contribution of this project. Bus positions and route occupancy here are **simulated**, not fed by live GPS.
+The counting research sits inside a small product shell — a ground-truth annotation tool, and a route planner + live-camera monitor for a simulated Kyzylorda (Kazakhstan) bus network — included so the counting pipeline has a plausible product context to be evaluated in. Bus positions and route occupancy on the map are **simulated**, not fed by live GPS.
 
 <p align="center">
-  <img src="docs/screenshots/monitor.png" alt="Monitor page: route planner and map" width="850">
+  <img src="docs/screenshots/annotate.png" alt="Ground-truth annotation tool, with the 8 PAMELA-UANDES benchmark segments listed" width="850">
 </p>
 
-## 10. Getting started
+The `/annotate` page decodes a chosen segment into a frame-accurate strip (avoiding the seeking imprecision of a native `<video>` element under HTTP range requests), lets an annotator scrub it at up to quarter speed, and mark every entry/exit with a keystroke at the exact frame it happens. Saving writes a small JSON record under `benchmarks/` — a flat file, not a database, so a benchmark can be reviewed in a diff and committed alongside the code judged by it. Seven of the eight benchmarks shipped here are exactly this: PAMELA-UANDES's own annotated tracks, replayed through the app's own `CountLine`/`LineCounter`, so the ground truth is built by construction rather than eyeballed.
+
+<p align="center">
+  <img src="docs/screenshots/monitor.png" alt="Monitor page: simulated route planner and map" width="850">
+</p>
+
+## 9. Getting started
 
 ### Prerequisites
 
-- Python 3.11+ (developed against 3.14) and Node.js 20+
-- ~200 MB disk for auto-downloaded YOLO/COCO base weights (fetched by `ultralytics` on first use)
+- Python 3.11+ and Node.js 20+
+- ~15 MB disk for the auto-downloaded YOLO11n base weights (fetched by `ultralytics` on first use)
 
 ### Backend
 
@@ -274,85 +220,91 @@ pip install -r backend/requirements.txt
 uvicorn backend.main:app --reload --port 8000
 ```
 
-`GET http://localhost:8000/health` should return `{"ok": true, ...}`. The two fine-tuned checkpoints in `models/` are already committed (~12 MB total) — no training run is required to try Methods A/B with their fine-tuned weights.
+`GET http://localhost:8000/health` should return `{"ok": true, "methods": ["head"], ...}`. The fine-tuned detector (`models/pamela_head.pt`, ~5 MB) is already committed — no training run is required to try the app.
 
 ### Frontend
 
 ```bash
 npm install
 cp .env.example .env   # fill in your own Google Maps key if you want the map view
-npm run dev             # http://localhost:5173
+npm run dev             # http://localhost:5173 (Vite picks the next free port if it's taken)
 ```
 
-The counting lab (`/lab`) talks to the backend at a hardcoded `http://localhost:8000` (`src/services/counters.ts`) — keep the backend on that port, or edit the constant.
+The lab (`/lab`) talks to the backend at a hardcoded `http://localhost:8000` (`src/services/counters.ts`) — keep the backend on that port, or edit the constant.
 
 ### Data
 
-`test_data/` is **not** included in this repository — it holds vendor promotional footage (licensing) and the author's own multi-hundred-megabyte screen recordings (size), listed in `.gitignore`. The backend and every UI page work with an empty `test_data/`; to try the lab against real footage, drop your own `.mp4`/`.mov` clips into `test_data/` (or `test_data/quality/`) and they'll appear in the sample picker automatically. To reproduce the fine-tuning pipeline from scratch you will need footage genuinely shot from above a doorway — see `SEGMENTS` in `backend/training/build_dataset.py` for the exact shape of clip the pipeline expects.
+`test_data/` is **not** included in this repository (see `.gitignore`) — it holds the PAMELA-UANDES dataset (restricted to registered research use — see [§15](#15-dataset-citation-and-license)) and vendor promotional clips. The app and every UI page work with an empty `test_data/`; drop your own `.mp4`/`.mov` clips in and they appear in the sample picker automatically. To reproduce the training pipeline you need PAMELA-UANDES itself — register at [videodatasets.org/PAMELA-UANDES](https://videodatasets.org/PAMELA-UANDES/whole_data.html) and extract it under `test_data/pamela-uandes/` (see `backend/training/import_pamela.py` for the exact expected file layout).
 
-### Reproducing the fine-tuning pipeline
+## 10. Reproducing the pipeline from scratch
 
 ```bash
-# 1. Distill the pose dataset from a large teacher model
-python -m backend.training.build_dataset --teacher yolo11m-pose.pt
+# 1. Build the detector's training set (R1–R3 train / R4 dev) and the
+#    ground-truth benchmarks (R5–R8, from PAMELA-UANDES's own annotated tracks)
+python -m backend.training.build_head_dataset
+python -m backend.training.import_pamela --skip-train   # writes benchmarks/*.json
 
-# 2. Derive the detection dataset from the same frames/split
-python -m backend.training.make_det_dataset
+# 2. Train the head detector from scratch
+python3 -c "
+from ultralytics import YOLO
+YOLO('yolo11n.pt').train(data='datasets/pamela_head/data.yaml', imgsz=384,
+                          epochs=30, batch=32, project='runs/head', name='y11n_384')
+"
+cp runs/head/y11n_384/weights/best.pt models/pamela_head.pt
 
-# 3. Fine-tune both students (same script — Ultralytics infers the task from the base checkpoint)
-python -m backend.training.train_pose --data datasets/topview_pose/data.yaml --model yolo11n-pose.pt --epochs 60
-python -m backend.training.train_pose --data datasets/topview_det/data.yaml  --model yolov8n.pt --imgsz 512 --batch 24 --freeze 10 --epochs 30 --name topview_det --out models/topview_det.pt
+# 3. Tune the tracker on R4 only, then test once on R5–R8
+python -m backend.training.eval_head sweep
+python -m backend.training.eval_head test
 
-# 4. Score baseline vs. fine-tuned against every saved ground-truth segment
+# 4. Honest ablation: how much of the result is the detector vs. the tracker
+python -m backend.training.eval_head trackers
+
+# 5. Score against every saved benchmark segment
 python -m backend.training.evaluate --suite
-python -m backend.training.evaluate --suite --finetuned
 ```
 
 ## 11. Project structure
 
 ```text
 backend/
-├── main.py                  FastAPI app — jobs, samples, benchmarks, live demo endpoint
-├── bench.py                 CLI for quick method comparisons over a video file
-├── benchmarks.py            Flat-file (JSON) ground-truth store
+├── main.py                     FastAPI app — jobs, samples, benchmarks, live demo endpoint
+├── bench.py                     CLI for a quick run of method D over a video file
+├── benchmarks.py                Flat-file (JSON) ground-truth store
 ├── counters/
-│   ├── runner.py            Shared frame loop + per-method parameter schemas
-│   ├── common.py            CountLine, LineCounter, CentroidTracker
-│   ├── method_bbox.py       Method A — YOLOv8 + ByteTrack
-│   ├── method_pose.py       Method B — YOLO-Pose + anatomical anchor
-│   └── method_depth.py      Method C — background subtraction
+│   ├── runner.py                Shared frame loop + method D's parameter schema
+│   ├── common.py                CountLine, LineCounter, CentroidTracker
+│   └── method_head.py            Method D — YOLO11n head detector + HeadTracker
 └── training/
-    ├── build_dataset.py     Teacher → pseudo-labelled pose dataset
-    ├── make_det_dataset.py  Derives the detection dataset from the pose one
-    ├── train_pose.py        Fine-tunes either student (task inferred from base model)
-    └── evaluate.py          Detection-density probe + MAE-based suite evaluator
+    ├── import_pamela.py          PAMELA-UANDES CSVs → YOLO labels + ground-truth benchmarks
+    ├── build_head_dataset.py     R1–R3 train / R4 dev split for the head detector
+    └── eval_head.py               sweep (tune on R4) / test (score on R5–R8) / trackers (ablation)
 
 src/
 ├── pages/
-│   ├── LabPage.tsx           /lab — all three methods, side by side
-│   ├── MethodPage.tsx        /lab/:methodId — one method's full control surface
-│   ├── AnnotatePage.tsx      /annotate — ground-truth authoring tool
-│   └── MonitorPage.tsx       /monitor — route planner + live camera demo
-├── components/lab/           LinePreview, MethodCard, ParamControl (schema-driven)
-├── hooks/useLabSource.ts     Shared source/line/params state (Lab ⇄ MethodPage)
-├── i18n/                     ru.ts (source of truth) + en.ts, ~260 keys each
-└── services/counters.ts      Typed client for the counting API
+│   ├── LabPage.tsx               /lab — run method D on any bundled or uploaded clip
+│   ├── MethodPage.tsx            /lab/head — full control surface for method D
+│   ├── AnnotatePage.tsx          /annotate — ground-truth authoring tool
+│   └── MonitorPage.tsx           /monitor — route planner + live camera demo
+├── components/lab/               LinePreview, MethodCard (schema-driven controls)
+├── hooks/useLabSource.ts         Shared source/line/params state (Lab ⇄ MethodPage)
+├── i18n/                         ru.ts (source of truth) + en.ts
+└── services/counters.ts          Typed client for the counting API
 
-models/            topview_pose.pt, topview_det.pt — the two fine-tuned deliverables (tracked, ~12 MB)
-benchmarks/         Hand-annotated ground-truth segments (tracked, JSON)
-docs/screenshots/   Images used in this README
+models/pamela_head.pt   The one fine-tuned deliverable (tracked, ~5 MB) — the real research output
+benchmarks/             8 ground-truth segments (tracked, JSON) — 7 from PAMELA-UANDES, 1 legacy
+docs/screenshots/       Images used in this README
 ```
 
 ## 12. API reference
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /methods` | Method metadata + per-method parameter schema, localized |
-| `GET /models` | Which weight sets (baseline / fine-tuned) each method can run |
+| `GET /methods` | Method D's metadata + its parameter schema, localized |
+| `GET /models` | Weight-set variants per method (empty today — D ships one calibrated checkpoint) |
 | `GET /samples` | Bundled clips with curated start-time / line presets |
 | `GET /sample/{id}/thumb` | One JPEG frame, for placing the counting line |
 | `GET /sample/{id}/strip` | Decoded frame sequence for the frame-accurate annotator |
-| `POST /upload` · `POST /compare` | Analyse an uploaded video with one or several methods |
+| `POST /upload` · `POST /compare` | Analyse an uploaded video |
 | `POST /sample/{id}/run` | Analyse a bundled clip without uploading |
 | `GET /job/{id}` · `GET /job/{id}/video` | Poll a running job / download its annotated output |
 | `GET|POST /benchmarks`, `DELETE /benchmarks/{id}` | Ground-truth CRUD used by the annotation tool |
@@ -360,14 +312,18 @@ docs/screenshots/   Images used in this README
 
 ## 13. Internationalization
 
-The UI ships in Russian and English through a small React context (`src/i18n/`) rather than a heavyweight i18n library. Russian is treated as the source of truth (every key must exist there); English is allowed to have gaps, falling back to Russian rather than to a raw key. The backend mirrors this for API-authored copy (method descriptions, dataset notes) via a `lang` query parameter, so the method cards, pros/cons and dataset lists you see in the lab are localized end-to-end, not just the static chrome around them.
+The UI ships in Russian and English through a small React context (`src/i18n/`) rather than a heavyweight i18n library. Russian is the source of truth (every key must exist there); English is allowed to have gaps, falling back to Russian. The backend mirrors this for API-authored copy via a `lang` query parameter, so method D's description, pros/cons and dataset list are localized end-to-end.
 
 ## 14. Tech stack
 
 **Frontend** — React 19, TypeScript, Vite, Tailwind CSS v4, Framer Motion, react-router-dom, react-leaflet / Leaflet, react-three-fiber + drei (the landing page's 3D globe).
-**Backend** — FastAPI, Uvicorn, OpenCV, Ultralytics (YOLOv8 / YOLO11), PyTorch (CPU/CUDA/Apple-Silicon MPS auto-detected).
-**Tooling used to build this README** — Playwright (headless Chromium) for the screenshots in `docs/screenshots/`, captured against the actual running application rather than mocked up.
+**Backend** — FastAPI, Uvicorn, OpenCV, Ultralytics (YOLO11), PyTorch (CPU/CUDA/Apple-Silicon MPS auto-detected), `lap` (Hungarian assignment for the head tracker).
+**Screenshots in this README** were captured headlessly (Playwright + Chromium) against the actual running application — every counted number you see is a real run, not a mock-up.
 
-## 15. License
+## 15. Dataset citation and license
 
-No license has been declared for this repository yet; all rights reserved by default until one is added.
+This project's detector is trained on **PAMELA-UANDES**, which is restricted to registered, non-commercial research use. The raw dataset is not redistributed in this repository. Anyone reproducing the training pipeline must register their own access at [videodatasets.org/PAMELA-UANDES](https://videodatasets.org/PAMELA-UANDES/whole_data.html) and credit the original work:
+
+> Velastin, S. A., Fernández, R., Espinosa, J. E., & Bay, A. (2020). Detecting, Tracking and Counting People Getting On/Off a Metropolitan Train Using a Standard Video Camera. *Sensors*, 20(21), 6251. https://doi.org/10.3390/s20216251
+
+No license has been declared for this repository's own code yet; all rights reserved by default until one is added.

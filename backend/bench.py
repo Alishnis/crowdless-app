@@ -1,7 +1,7 @@
-"""Run one or all counting methods over a video and print the numbers.
+"""Run method D over a video and print the numbers.
 
     python -m backend.bench test_data/quality/*.mp4 --seconds 10
-    python -m backend.bench video.mp4 --methods bbox,pose --line 0.5 --save out/
+    python -m backend.bench video.mp4 --line 0.5 --save out/
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from backend.counters.runner import METHODS, RunConfig, run
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("videos", nargs="+")
-    ap.add_argument("--methods", default="bbox,pose,depth")
+    ap.add_argument("--methods", default="head")
     ap.add_argument("--start", type=float, default=0.0, help="skip into the clip")
     ap.add_argument("--seconds", type=float, default=10.0, help="0 = whole clip")
     ap.add_argument("--line", type=float, default=0.55)

@@ -23,10 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 
-# ML artefacts — pretrained COCO weights auto-download via ultralytics and
-# training intermediates regenerate via backend/training/*, so neither is
-# committed. The two small fine-tuned deliverables in models/ ARE tracked
-# (~12MB total) — that's the actual research output of this project.
+# ML artefacts — pretrained COCO/base weights auto-download via ultralytics
+# and training intermediates regenerate via backend/training/*, so neither is
+# committed. The fine-tuned deliverable in models/ (pamela_head.pt, ~5MB) IS
+# tracked — that's the actual research output of this project.
 *.pt
 !models/*.pt
 datasets/
