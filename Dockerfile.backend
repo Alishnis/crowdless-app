@@ -1,0 +1,31 @@
+# Method D's backend: FastAPI + OpenCV + Ultralytics (YOLO11n head detector).
+# Built and pushed manually to Docker Hub, then run as an Azure Container App
+# — no ACR involved.
+FROM python:3.11-slim
+
+# libgl1/libglib2.0-0: opencv-python needs these even for headless video
+# decoding — without them "import cv2" fails with a libGL.so.1 error.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# CPU-only torch first: ultralytics would otherwise pull the default CUDA
+# build (~3GB of unused GPU libs) since this service only ever runs on CPU.
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+
+COPY backend/requirements.txt backend/requirements.txt
+RUN pip install --no-cache-dir -r backend/requirements.txt
+
+COPY backend/ backend/
+COPY models/ models/
+COPY benchmarks/ benchmarks/
+
+ENV YOLO_CONFIG_DIR=/tmp/ultralytics \
+    PORT=8000
+EXPOSE 8000
+
+# $PORT lets the platform override the port; Container Apps' ingress target
+# just needs to match whatever this ends up bound to.
+CMD ["sh", "-c", "uvicorn backend.main:app --host 0.0.0.0 --port ${PORT}"]

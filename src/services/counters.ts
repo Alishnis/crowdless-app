@@ -1,4 +1,6 @@
-export const BACKEND = 'http://localhost:8000'
+// Overridable at build time (VITE_API_URL) so a production build can point at
+// a deployed backend instead of localhost; falls back to the dev default.
+export const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 export interface ParamOption { value: string | number; label: string }
 

@@ -1,0 +1,35 @@
+apiVersion: 2021-09-01
+location: germanywestcentral
+name: crowdless-aci
+properties:
+  containers:
+    - name: backend
+      properties:
+        image: docker.io/tmpalish/crowdless-backend:latest
+        ports:
+          - port: 8000
+            protocol: TCP
+        resources:
+          requests:
+            cpu: 1.5
+            memoryInGb: 3.0
+    - name: frontend
+      properties:
+        image: docker.io/tmpalish/crowdless-frontend:latest
+        ports:
+          - port: 80
+            protocol: TCP
+        resources:
+          requests:
+            cpu: 0.5
+            memoryInGb: 0.5
+  osType: Linux
+  restartPolicy: Always
+  ipAddress:
+    type: Public
+    dnsNameLabel: crowdless-demo
+    ports:
+      - port: 80
+        protocol: TCP
+      - port: 8000
+        protocol: TCP

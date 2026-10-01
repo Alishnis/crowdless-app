@@ -1,0 +1,17 @@
+node_modules
+dist
+dist-ssr
+.git
+test_data
+datasets
+runs
+*.pt
+!models/*.pt
+docs
+.venv
+__pycache__
+*.pyc
+.env
+.env.local
+*.log
+.DS_Store
