@@ -11,9 +11,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# CPU-only torch first: ultralytics would otherwise pull the default CUDA
-# build (~3GB of unused GPU libs) since this service only ever runs on CPU.
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+# CPU-only torch + torchvision first, from the SAME index: ultralytics would
+# otherwise pull the default CUDA build (~3GB of unused GPU libs), and pairing
+# this cpu-only torch with a PyPI torchvision (built against a different torch
+# ABI) breaks torchvision's custom ops ("operator torchvision::nms does not
+# exist") the moment a detection actually runs.
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
 COPY backend/requirements.txt backend/requirements.txt
 RUN pip install --no-cache-dir -r backend/requirements.txt
