@@ -19,7 +19,6 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'nav.features', path: '/', anchor: '#features' },
   { key: 'nav.monitor',  path: '/monitor' },
   { key: 'nav.lab',      path: '/lab'     },
-  { key: 'ann.nav',      path: '/annotate' },
   { key: 'nav.map',      path: '/map'     },
 ]
 
