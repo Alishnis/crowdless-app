@@ -254,6 +254,7 @@ export const ru: Record<string, string> = {
   'up.startTrip': 'Начать маршрут',
   'up.busesN': 'Автобусы · {n} шт.',
   'up.busN': 'Автобус {n}',
+  'up.live': 'Live',
   'up.stepOf': 'Шаг {cur} из {total}',
   'up.metres': '{n} м',
   'up.back': 'Назад',

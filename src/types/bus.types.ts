@@ -38,4 +38,6 @@ export interface SimulatedBus {
   nextStop: string;
   inCount: number;
   outCount: number;
+  /** True when count/percentage come from a live backend detection feed, not the route simulation. */
+  isLive?: boolean;
 }

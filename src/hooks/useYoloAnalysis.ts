@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { BACKEND } from '../services/counters'
 
 export interface YoloFrame {
   count: number
@@ -15,7 +16,6 @@ export interface YoloState extends YoloFrame {
   connected: boolean
 }
 
-const BACKEND = 'http://localhost:8000'
 const POLL_MS  = 3_000
 
 const INITIAL: YoloState = {

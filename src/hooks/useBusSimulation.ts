@@ -72,7 +72,17 @@ interface BusCfg {
   noiseSeed: number
 }
 
-export function useBusSimulation(): SimulatedBus[] {
+/** Real counts from the backend's rotating dataset-clip feed (see useYoloAnalysis), swapped in for one bus. */
+export interface LiveFeed {
+  connected: boolean
+  count: number
+  capacity: number
+  percentage: number
+  inCount: number
+  outCount: number
+}
+
+export function useBusSimulation(live?: LiveFeed): SimulatedBus[] {
   // Build config list once
   const configs = useMemo<BusCfg[]>(() => {
     const list: BusCfg[] = []
@@ -125,6 +135,8 @@ export function useBusSimulation(): SimulatedBus[] {
   const configsRef    = useRef(configs)
   const cumRef        = useRef(cumByRoute)
   const startTimeRef  = useRef<number | null>(null)
+  const liveRef       = useRef(live)
+  liveRef.current = live
 
   useEffect(() => {
     let rafId: number
@@ -139,8 +151,10 @@ export function useBusSimulation(): SimulatedBus[] {
         lastUpdate = ts
         const rushBonus = getRushBonus()
 
+        const liveNow = liveRef.current
+
         setBuses(
-          configsRef.current.map(cfg => {
+          configsRef.current.map((cfg, idx) => {
             const route = KYZ_ROUTES[cfg.routeIdx]
             const cum   = cumRef.current[cfg.routeIdx]
             const path  = route.path
@@ -176,6 +190,12 @@ export function useBusSimulation(): SimulatedBus[] {
             const inCount      = Math.max(count, stopsPassed * boardPerStop)
             const outCount     = Math.max(0, inCount - count)
 
+            // Bus 0 doubles as the live demo: when the backend's rotating
+            // dataset-clip feed (see useYoloAnalysis) is reachable, its real
+            // detection numbers replace the synthetic ones for this bus only
+            // — every other bus on the map stays purely simulated.
+            const useLive = idx === 0 && !!liveNow?.connected
+
             return {
               busId:       cfg.busId,
               routeId:     route.id,
@@ -184,12 +204,13 @@ export function useBusSimulation(): SimulatedBus[] {
               color:       route.color,
               pos,
               heading,
-              count,
-              capacity:    route.capacity,
-              percentage:  pct,
+              count:       useLive ? liveNow!.count      : count,
+              capacity:    useLive ? liveNow!.capacity   : route.capacity,
+              percentage:  useLive ? liveNow!.percentage : pct,
               nextStop,
-              inCount,
-              outCount,
+              inCount:     useLive ? liveNow!.inCount    : inCount,
+              outCount:    useLive ? liveNow!.outCount   : outCount,
+              isLive:      useLive,
             }
           }),
         )

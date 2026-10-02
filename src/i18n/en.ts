@@ -254,6 +254,7 @@ export const en: Record<string, string> = {
   'up.startTrip': 'Start the trip',
   'up.busesN': 'Buses · {n}',
   'up.busN': 'Bus {n}',
+  'up.live': 'Live',
   'up.stepOf': 'Step {cur} of {total}',
   'up.metres': '{n} m',
   'up.back': 'Back',

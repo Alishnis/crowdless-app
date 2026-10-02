@@ -16,6 +16,7 @@ import type { AnyMatch, RouteMatch, WalkTransferMatch, KyzRoute } from '../servi
 import type { Stop, SimulatedBus } from '../types/bus.types'
 import { useNavigate } from 'react-router-dom'
 import { useBusSimulation } from '../hooks/useBusSimulation'
+import { useYoloAnalysis } from '../hooks/useYoloAnalysis'
 import { getOccupancyLevel, OCCUPANCY_COLORS, OCCUPANCY_LABELS } from '../utils/occupancy'
 import { useT } from '../i18n'
 
@@ -423,7 +424,15 @@ export default function UserPage() {
   const [routeSearchQuery,   setRouteSearchQuery]   = useState('')
   const [selectedBrowseRoute, setSelectedBrowseRoute] = useState<KyzRoute | null>(null)
 
-  const simBuses = useBusSimulation()
+  const yolo = useYoloAnalysis()
+  const simBuses = useBusSimulation({
+    connected:  yolo.connected,
+    count:      yolo.count,
+    capacity:   yolo.capacity,
+    percentage: yolo.percentage,
+    inCount:    yolo.inCount,
+    outCount:   yolo.outCount,
+  })
 
   const allStops = useMemo(() => getAllStops(), [])
 
@@ -978,7 +987,15 @@ export default function UserPage() {
                     return (
                       <div key={bus.busId}>
                         <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-xs text-white/40">{t('up.busN', { n: i + 1 })}</span>
+                          <span className="text-xs text-white/40 flex items-center gap-1.5">
+                            {t('up.busN', { n: i + 1 })}
+                            {bus.isLive && (
+                              <span className="flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider text-emerald-400">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                {t('up.live')}
+                              </span>
+                            )}
+                          </span>
                           <div className="flex items-center gap-3">
                             <span className="flex items-center gap-1 text-[11px] font-mono text-white/35">
                               <Users size={10} /> {t('up.seatsOf', { count: bus.count, capacity: bus.capacity })}
