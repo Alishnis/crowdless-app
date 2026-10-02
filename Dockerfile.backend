@@ -25,6 +25,12 @@ COPY backend/ backend/
 COPY models/ models/
 COPY benchmarks/ benchmarks/
 
+# One short demo clip for the live /analyze loop (map page + Monitor) — the
+# full test_data/ research dataset is never baked into the image (see
+# .dockerignore); live_demo/ is a separate, git-ignored directory with just
+# this one file.
+COPY live_demo/ test_data/
+
 ENV YOLO_CONFIG_DIR=/tmp/ultralytics \
     PORT=8000
 EXPOSE 8000

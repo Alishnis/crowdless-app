@@ -34,6 +34,8 @@ export function useYoloAnalysis(): YoloState {
       const res = await fetch(`${BACKEND}/analyze?t=${Date.now()}`, { cache: 'no-store' })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const d = await res.json()
+      // No clips in test_data/ on this deployment — {"error": "..."}, no count fields.
+      if (d.error) throw new Error(d.error)
       setState({
         count:      d.count,
         capacity:   d.capacity,
