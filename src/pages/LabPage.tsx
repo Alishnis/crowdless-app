@@ -169,7 +169,8 @@ export default function LabPage() {
               <Slider label={t('lab.param.start')} value={params.start_seconds} min={0}
                       max={Math.max(1, Math.floor(sample?.duration ?? 60))} step={0.5}
                       onChange={v => setParams(p => ({ ...p, start_seconds: v }))} />
-              <Slider label={t('lab.param.duration')} value={params.max_seconds} min={2} max={60} step={1}
+              <Slider label={t('lab.param.duration')} value={params.max_seconds} min={2}
+                      max={Math.max(2, Math.ceil((sample?.duration ?? 60) - params.start_seconds))} step={1}
                       onChange={v => setParams(p => ({ ...p, max_seconds: v }))} />
               <Slider label={t('lab.param.conf')} value={params.conf} min={0.1} max={0.8} step={0.05}
                       disabled={params.finetuned}

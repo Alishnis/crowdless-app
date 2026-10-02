@@ -171,7 +171,8 @@ export default function MethodPage() {
               <Range label={t('lab.param.start')} value={src.params.start_seconds} min={0}
                      max={Math.max(1, Math.floor(src.sample?.duration ?? 60))} step={0.5}
                      onChange={v => src.setParams(p => ({ ...p, start_seconds: v }))} />
-              <Range label={t('lab.param.duration')} value={src.params.max_seconds} min={2} max={60} step={1}
+              <Range label={t('lab.param.duration')} value={src.params.max_seconds} min={2}
+                     max={Math.max(2, Math.ceil((src.sample?.duration ?? 60) - src.params.start_seconds))} step={1}
                      onChange={v => src.setParams(p => ({ ...p, max_seconds: v }))} />
               <Range label={t('lab.param.conf')} value={src.params.conf} min={0.1} max={0.8} step={0.05}
                      hint={canTune && src.params.finetuned
