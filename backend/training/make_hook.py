@@ -129,13 +129,14 @@ def compose(left: np.ndarray, right: np.ndarray, hud: dict) -> np.ndarray:
     centered(hud["right_title"], cx_r, 30, f_title, GREEN)
 
     y_counts = top + ph + 6
-    centered(f"IN {hud['left_in']}", cx_l, y_counts, f_big, FG)
-    centered(f"IN {hud['right_in']}", cx_r, y_counts, f_big, FG)
-    centered(f"OUT {hud['left_out']}", cx_l, y_counts + 104, f_mid, MUTED)
-    centered(f"OUT {hud['right_out']}", cx_r, y_counts + 104, f_mid, MUTED)
+    main, other = ("out", "in") if hud["flip"] else ("in", "out")
+    for cx, side in ((cx_l, "left"), (cx_r, "right")):
+        centered(f"{main.upper()} {hud[f'{side}_{main}']}", cx, y_counts, f_big, FG)
+        centered(f"{other.upper()} {hud[f'{side}_{other}']}", cx, y_counts + 104, f_mid, MUTED)
 
     # Ground truth, centred between the two sides
-    centered(f"TRUE  IN {hud['true_in']}  ·  OUT {hud['true_out']}",
+    centered(f"TRUE  {main.upper()} {hud[f'true_{main}']}  ·  "
+             f"{other.upper()} {hud[f'true_{other}']}",
              CANVAS_W / 2, y_counts + 166, f_mid, FG)
     centered(hud["footer"], CANVAS_W / 2, CANVAS_H - 46, f_small, MUTED)
 
@@ -152,7 +153,7 @@ def _truth_counts(events: list[dict], start: float, upto: float) -> tuple[int, i
 
 def run_pair(bench: dict, start: float, seconds: float, stock_weights: str,
              stock_conf: float, stock_imgsz: int, out_path: str | None,
-             hold: float, proc_width: int = 640) -> dict:
+             hold: float, proc_width: int = 640, flip: bool = False) -> dict:
     clip = os.path.join(ROOT, bench["clip"])
     cap = cv2.VideoCapture(clip)
     if not cap.isOpened():
@@ -167,7 +168,13 @@ def run_pair(bench: dict, start: float, seconds: float, stock_weights: str,
     cap.set(cv2.CAP_PROP_POS_FRAMES, int(start * fps))
     n_frames = int((end - start) * fps)
 
-    line = CountLine(bench["line_ratio"], bench["orientation"], bench["invert"])
+    # --flip reads the same footage the other way round: line, both detectors and
+    # the ground truth all swap direction together, so the clip stays consistent.
+    events = bench["events"]
+    if flip:
+        events = [{**e, "type": "out" if e["type"] == "in" else "in"} for e in events]
+    line = CountLine(bench["line_ratio"], bench["orientation"],
+                     bench["invert"] != flip)
     stock_counter = LineCounter(line, cooldown=12, min_age=3)
     head_counter = LineCounter(line, cooldown=12, min_age=3)
 
@@ -187,6 +194,7 @@ def run_pair(bench: dict, start: float, seconds: float, stock_weights: str,
     hud = {
         "left_title": f"Stock {stock_name.replace('yolo', 'YOLO')} + ByteTrack",
         "right_title": "CrowdLess: head detector + tracker",
+        "flip": flip,
         "footer": (f"PAMELA-UANDES {os.path.splitext(bench['clip'])[0]} · "
                    f"{start:.0f}–{end:.0f}s · same line, same counter · "
                    f"Velastin et al., 2020"),
@@ -210,7 +218,7 @@ def run_pair(bench: dict, start: float, seconds: float, stock_weights: str,
         line.draw(h_vis)
         head.draw(h_vis, h_dets, head_counter)
 
-        t_in, t_out = _truth_counts(bench["events"], start, start + (i + 1) / fps)
+        t_in, t_out = _truth_counts(events, start, start + (i + 1) / fps)
         hud.update(left_in=stock_counter.in_count, left_out=stock_counter.out_count,
                    right_in=head_counter.in_count, right_out=head_counter.out_count,
                    true_in=t_in, true_out=t_out)
@@ -226,7 +234,7 @@ def run_pair(bench: dict, start: float, seconds: float, stock_weights: str,
         writer.release()
         _finalise(tmp_path, out_path)
 
-    t_in, t_out = _truth_counts(bench["events"], start, end)
+    t_in, t_out = _truth_counts(events, start, end)
     return {"clip": bench["clip"], "start": start, "end": end,
             "true_in": t_in, "true_out": t_out,
             "stock_in": stock_counter.in_count, "stock_out": stock_counter.out_count,
@@ -282,6 +290,8 @@ def main() -> int:
     ap.add_argument("--out", default="out/hook.mp4")
     ap.add_argument("--hold", type=float, default=2.0,
                     help="seconds to freeze on the final counts")
+    ap.add_argument("--flip", action="store_true",
+                    help="swap IN and OUT (when the footage reads the other way round)")
     ap.add_argument("--scan", action="store_true",
                     help="print both methods on every benchmark clip, render nothing")
     ap.add_argument("--scan-seconds", type=float, default=0.0,
@@ -298,7 +308,7 @@ def main() -> int:
         print(f"!! cannot read {args.bench}")
         return 2
     r = run_pair(bench, args.start, args.seconds, args.stock_weights,
-                 args.stock_conf, args.stock_imgsz, args.out, args.hold)
+                 args.stock_conf, args.stock_imgsz, args.out, args.hold, flip=args.flip)
     print(f"\n{r['clip']} {r['start']:.0f}–{r['end']:.0f}s")
     print(f"  true   IN {r['true_in']:>3}  OUT {r['true_out']:>3}")
     print(f"  stock  IN {r['stock_in']:>3}  OUT {r['stock_out']:>3}")
