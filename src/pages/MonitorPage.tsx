@@ -8,6 +8,7 @@ import { KYZ_ROUTES } from '../services/kyzylordaRoutes'
 import type { Stop, SimulatedBus } from '../types/bus.types'
 import { useBusSimulation } from '../hooks/useBusSimulation'
 import { useYoloAnalysis } from '../hooks/useYoloAnalysis'
+import { useBusCamera, slotForBus } from '../hooks/useBusCamera'
 import { useT } from '../i18n'
 import BusMap from '../components/map/BusMap'
 import BusInfoPanel from '../components/map/BusInfoPanel'
@@ -31,11 +32,24 @@ export default function MonitorPage() {
   const [fromStop,       setFromStop]       = useState<Stop | null>(null)
   const [toStop,         setToStop]         = useState<Stop | null>(null)
 
-  // All simulated buses across all Kyzylorda routes
-  const simBuses = useBusSimulation()
+  // Each bus has its own door camera replaying real doorway footage through the
+  // detector; only the bus being watched runs inference. Without that footage
+  // (e.g. a deployment with no dataset) fall back to the single shared feed.
+  const cam  = useBusCamera(slotForBus(selectedBusId), activeTab === 'camera')
+  const yolo = useYoloAnalysis(activeTab === 'camera' && !cam.loading && !cam.connected)
+  const feed = cam.connected ? cam : yolo
 
-  // YOLO camera feed (for the camera tab)
-  const yolo = useYoloAnalysis()
+  // All simulated buses across all Kyzylorda routes. The watched bus takes its
+  // numbers from its camera, so the map, the list and the panel agree.
+  const simBuses = useBusSimulation(cam.connected ? {
+    busId:      selectedBusId,
+    connected:  true,
+    count:      cam.count,
+    capacity:   cam.capacity,
+    percentage: cam.percentage,
+    inCount:    cam.inCount,
+    outCount:   cam.outCount,
+  } : undefined)
 
   // When user selects a bus on the map, switch to camera tab and highlight
   function handleBusSelect(bus: SimulatedBus) {
@@ -209,7 +223,7 @@ export default function MonitorPage() {
           ) : (
             <BusInfoPanel
               bus={busForPanel}
-              yolo={yolo}
+              yolo={feed}
               onUploadResult={() => {}}
             />
           )}

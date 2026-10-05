@@ -205,6 +205,9 @@ export const ru: Record<string, string> = {
   'bus.offline': 'Офлайн',
   'bus.updatedAt': 'Обновлено в {time}',
   'bus.camFeed': 'Камера · Вход/Выход',
+  'bus.boarding': 'Посадка',
+  'bus.alighting': 'Высадка',
+  'bus.footage': 'Видео: PAMELA-UANDES (Velastin et al., 2020) · {clip}',
 
   // ── Route planner ─────────────────────────────────────────────────────────
   'rp.search': 'Поиск остановки…',

@@ -25,7 +25,7 @@ const INITIAL: YoloState = {
   loading: true, connected: false,
 }
 
-export function useYoloAnalysis(): YoloState {
+export function useYoloAnalysis(enabled = true): YoloState {
   const [state, setState] = useState<YoloState>(INITIAL)
   const timer = useRef<ReturnType<typeof setInterval>>(undefined)
 
@@ -53,10 +53,11 @@ export function useYoloAnalysis(): YoloState {
   }, [])
 
   useEffect(() => {
+    if (!enabled) return
     poll()
     timer.current = setInterval(poll, POLL_MS)
     return () => clearInterval(timer.current)
-  }, [poll])
+  }, [poll, enabled])
 
   return state
 }

@@ -74,6 +74,8 @@ interface BusCfg {
 
 /** Real counts from the backend's rotating dataset-clip feed (see useYoloAnalysis), swapped in for one bus. */
 export interface LiveFeed {
+  /** Bus the numbers belong to; omitted = the first bus (the /map demo bus). */
+  busId?: string
   connected: boolean
   count: number
   capacity: number
@@ -194,7 +196,8 @@ export function useBusSimulation(live?: LiveFeed): SimulatedBus[] {
             // dataset-clip feed (see useYoloAnalysis) is reachable, its real
             // detection numbers replace the synthetic ones for this bus only
             // — every other bus on the map stays purely simulated.
-            const useLive = idx === 0 && !!liveNow?.connected
+            const useLive = !!liveNow?.connected
+              && (liveNow.busId ? cfg.busId === liveNow.busId : idx === 0)
 
             return {
               busId:       cfg.busId,
