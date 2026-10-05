@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Bus, Clock, Users, Wifi, Camera, WifiOff, LogIn, LogOut } from 'lucide-react'
 import type { BusOccupancy } from '../../types/bus.types'
 import type { YoloState } from '../../hooks/useYoloAnalysis'
+import type { BusCamState } from '../../hooks/useBusCamera'
 import { getOccupancyLevel, OCCUPANCY_COLORS, OCCUPANCY_LABELS } from '../../utils/occupancy'
 import VideoUpload from './VideoUpload'
 import { useT } from '../../i18n'
@@ -29,8 +30,9 @@ function StatCard({ label, value, icon, accent = false }: StatCardProps) {
 
 // ── AI Camera feed ─────────────────────────────────────────────────────────
 
-function CameraFeed({ yolo }: { yolo: YoloState }) {
+function CameraFeed({ yolo }: { yolo: YoloState | BusCamState }) {
   const t = useT()
+  const { activity } = yolo as Partial<BusCamState>
 
   if (yolo.loading) {
     return (
@@ -71,6 +73,20 @@ function CameraFeed({ yolo }: { yolo: YoloState }) {
         <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
         <span className="text-[10px] font-mono text-white/80 uppercase tracking-widest">{t('bus.camFeed')}</span>
       </div>
+
+      {/* What the door is doing right now (bus cameras only) */}
+      {activity && (
+        <div className={`absolute top-2 right-2 flex items-center gap-1.5 backdrop-blur-sm rounded-full px-2.5 py-1 ${
+          activity === 'boarding' ? 'bg-green-500/25' : 'bg-red-500/25'
+        }`}>
+          {activity === 'boarding'
+            ? <LogIn  size={10} className="text-green-300" />
+            : <LogOut size={10} className="text-red-300" />}
+          <span className="text-[10px] font-mono text-white/85 uppercase tracking-widest">
+            {t(activity === 'boarding' ? 'bus.boarding' : 'bus.alighting')}
+          </span>
+        </div>
+      )}
 
       {/* Count badge */}
       <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm rounded-lg px-2.5 py-1">
@@ -237,6 +253,11 @@ export default function BusInfoPanel({ bus, yolo, onUploadResult }: Props) {
           </p>
         </div>
         <CameraFeed yolo={yolo} />
+        {(yolo as Partial<BusCamState>).source && (
+          <p className="mt-2 text-[9px] font-mono text-white/20">
+            {t('bus.footage', { clip: (yolo as BusCamState).source })}
+          </p>
+        )}
       </div>
 
       {/* ── Video upload ───────────────────────────────────────────────── */}

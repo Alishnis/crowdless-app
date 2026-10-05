@@ -9,6 +9,7 @@ from .counters.common import CountLine, LineCounter, Detection, encode_jpeg, is_
 from .counters.method_head import HeadMethod
 from .counters.runner import METHOD_INFO, METHODS, RunConfig, method_info, run
 from . import benchmarks
+from .bus_cams import BusCameras
 
 logging.getLogger("ultralytics").setLevel(logging.ERROR)
 
@@ -480,6 +481,18 @@ async def analyze(response: Response):
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Pragma"]        = "no-cache"
     return await asyncio.get_event_loop().run_in_executor(_live_pool, _step)
+
+
+# ─── Per-bus demo cameras (real dataset footage, see bus_cams.py) ─────────────
+
+_cams      = BusCameras()
+_cam_pool  = ThreadPoolExecutor(max_workers=1)   # one inference at a time, like /analyze
+
+
+@app.get("/bus-cam/{slot}")
+async def bus_cam(slot: int, response: Response):
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return await asyncio.get_event_loop().run_in_executor(_cam_pool, _cams.step, slot)
 
 
 
