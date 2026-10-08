@@ -233,7 +233,7 @@ Stated plainly, because a portfolio project is more credible for saying this tha
 - **Event matching tolerance (+-1 s) can mask small timing errors** that a stricter tolerance would surface. It was chosen to match the original paper's protocol for comparability.
 - **Demo shell is simulated.** Bus positions and starting occupancies on `/monitor` and `/map` are generated, not real data; only the per-bus camera counts come from actual detections.
 - **Not production-ready.** No authentication, open CORS, an in-memory job store, and uploaded videos are written to temp files that are not cleaned up.
-- **The annotation UI was removed from the frontend** (commit `82de596`); the `/benchmarks` and `/sample/{id}/strip` API endpoints and their client helpers remain.
+- **The annotation UI was removed from the frontend** (commit `82de596`); the `/benchmarks` and `/sample/{id}/strip` API endpoints remain.
 - **Some frontend lint rules are downgraded to warnings** (React Compiler rules from `eslint-plugin-react-hooks` v7; 14 warnings, 0 errors).
 
 ## Project structure
@@ -247,7 +247,7 @@ backend/
 ├── requirements.txt            Runtime dependencies (requirements-dev.txt: pytest, httpx, ruff)
 ├── counters/
 │   ├── runner.py               Shared frame loop + method D's parameter schema
-│   ├── common.py               CountLine, LineCounter, CentroidTracker (legacy), drawing helpers
+│   ├── common.py               CountLine, LineCounter, drawing helpers
 │   ├── models.py               Lazy YOLO weight loading
 │   └── method_head.py          Method D: YOLO11n head detector + HeadTracker
 └── training/

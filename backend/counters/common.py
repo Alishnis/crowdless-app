@@ -186,57 +186,6 @@ class LineCounter:
         return st.state if st else "neutral"
 
 
-# ─── Simple centroid tracker (for the depth / blob method) ────────────────────
-
-class CentroidTracker:
-    """Nearest-neighbour tracker — assigns stable ids to blob centroids."""
-
-    def __init__(self, max_dist: float = 120.0, max_missed: int = 8):
-        self.max_dist   = max_dist
-        self.max_missed = max_missed
-        self._next_id   = 1
-        self.objects: dict[int, dict] = {}   # tid → {x, y, missed}
-
-    def update(self, points: list[tuple[float, float, dict]]) -> list[tuple[int, float, float, dict]]:
-        for o in self.objects.values():
-            o["missed"] += 1
-
-        assigned: dict[int, tuple] = {}
-        used_tids: set[int] = set()
-
-        # Greedy nearest match, closest pairs first
-        pairs = []
-        for i, (x, y, meta) in enumerate(points):
-            for tid, o in self.objects.items():
-                dist = float(np.hypot(x - o["x"], y - o["y"]))
-                if dist < self.max_dist:
-                    pairs.append((dist, i, tid))
-        pairs.sort()
-
-        used_points: set[int] = set()
-        for _, i, tid in pairs:
-            if i in used_points or tid in used_tids:
-                continue
-            used_points.add(i)
-            used_tids.add(tid)
-            x, y, meta = points[i]
-            self.objects[tid].update(x=x, y=y, missed=0)
-            assigned[tid] = (x, y, meta)
-
-        for i, (x, y, meta) in enumerate(points):
-            if i in used_points:
-                continue
-            tid = self._next_id
-            self._next_id += 1
-            self.objects[tid] = {"x": x, "y": y, "missed": 0}
-            assigned[tid] = (x, y, meta)
-
-        for tid in [t for t, o in self.objects.items() if o["missed"] > self.max_missed]:
-            del self.objects[tid]
-
-        return [(tid, x, y, meta) for tid, (x, y, meta) in assigned.items()]
-
-
 # ─── Drawing helpers ──────────────────────────────────────────────────────────
 
 def draw_trail(vis: np.ndarray, pts, color):
