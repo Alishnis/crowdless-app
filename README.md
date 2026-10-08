@@ -11,6 +11,14 @@
 </p>
 
 <p align="center">
+  <a href="https://www.youtube.com/watch?v=KVGqaX-Dgsg">
+    <img src="https://img.youtube.com/vi/KVGqaX-Dgsg/maxresdefault.jpg" alt="CrowdLess demo video: click to watch on YouTube" width="850">
+  </a>
+  <br>
+  <sub>Watch the demo video on YouTube</sub>
+</p>
+
+<p align="center">
   <img src="docs/screenshots/landing.png" alt="CrowdLess landing page" width="850">
 </p>
 
