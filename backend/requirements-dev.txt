@@ -1,0 +1,5 @@
+# Test and lint tooling (install on top of requirements.txt):
+#   pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+pytest
+httpx      # FastAPI TestClient
+ruff

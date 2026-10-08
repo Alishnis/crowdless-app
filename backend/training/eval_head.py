@@ -101,6 +101,20 @@ def match_events(pred: list[dict], gt: list[dict]) -> tuple[int, int, int]:
     return tp, len(pred) - tp, len(gt) - tp
 
 
+def prf(tp: int, fp: int, fn: int) -> dict:
+    """Event precision / recall / F1 / accuracy from matched-event counts.
+
+    accuracy = TP / (TP + FP + FN), the convention of Velastin et al. (2020),
+    Table 6. Denominators are floored at 1 so an empty clip scores 0, not NaN.
+    """
+    return {
+        "precision": tp / max(1, tp + fp),
+        "recall":    tp / max(1, tp + fn),
+        "f1":        2 * tp / max(1, 2 * tp + fp + fn),
+        "accuracy":  tp / max(1, tp + fp + fn),
+    }
+
+
 def run_clip(dets: list[np.ndarray], w: int, h: int, invert: bool, cfg: dict) -> list[dict]:
     tracker = HeadTracker(cfg["conf_hi"], cfg["conf_lo"], cfg["gate"],
                           cfg["max_lost"], cfg["n_init"])
@@ -127,11 +141,7 @@ def evaluate(clips: dict, cfg: dict, weights: str, imgsz: int, verbose: bool = F
         tot["in_abs"] += abs(pi - ti); tot["out_abs"] += abs(po - to)
         tot["in_true"] += ti; tot["out_true"] += to
         tot["rows"].append((tag, ti, pi, to, po, tp, fp, fn))
-    tp, fp, fn = tot["tp"], tot["fp"], tot["fn"]
-    tot["precision"] = tp / max(1, tp + fp)
-    tot["recall"]    = tp / max(1, tp + fn)
-    tot["f1"]        = 2 * tp / max(1, 2 * tp + fp + fn)
-    tot["accuracy"]  = tp / max(1, tp + fp + fn)
+    tot.update(prf(tot["tp"], tot["fp"], tot["fn"]))
     tot["in_mae"]    = tot["in_abs"] / len(clips)
     tot["out_mae"]   = tot["out_abs"] / len(clips)
     if verbose:
@@ -214,10 +224,10 @@ def trackers(weights: str, imgsz: int, clips: dict) -> None:
             tot["tp"] += tp; tot["fp"] += fp; tot["fn"] += fn
             tot["in_abs"] += abs(pi - ti)
             tot["out_abs"] += abs(counter.out_count - (len(gt) - ti))
-        tp, fp, fn = tot["tp"], tot["fp"], tot["fn"]
+        m = prf(tot["tp"], tot["fp"], tot["fn"])
         print(f"  {trk:15} IN MAE {tot['in_abs'] / len(clips):.2f}  OUT MAE "
-              f"{tot['out_abs'] / len(clips):.2f}  F1 {2 * tp / max(1, 2 * tp + fp + fn):.3f}  "
-              f"acc {tp / max(1, tp + fp + fn):.3f}")
+              f"{tot['out_abs'] / len(clips):.2f}  F1 {m['f1']:.3f}  "
+              f"acc {m['accuracy']:.3f}")
 
 
 def main() -> int:
