@@ -1,5 +1,13 @@
 # CrowdLess
 
+<p align="center">
+  <a href="http://crowdless-demo.germanywestcentral.azurecontainer.io"><b>▶ Live demo</b></a>
+  &nbsp;·&nbsp;
+  <a href="#5-results">Results</a>
+  &nbsp;·&nbsp;
+  <a href="#9-getting-started">Run it locally</a>
+</p>
+
 **Computer-vision passenger counting for a dense doorway queue — a head detector trained on real annotated ground truth, a tracker built specifically for partial occlusion, and an evaluation protocol with a held-out test set that was touched exactly once.**
 
 CrowdLess started as a simple operational question — *how full is this bus, right now?* — and turned into a small, honestly-measured research project on **how to count people crossing a doorway when they never stop overlapping each other**. An off-the-shelf "YOLO + tracker" pipeline collapses in exactly that scenario, because a whole-body detector and a box-based tracker both assume people are mostly separable — and in a boarding queue they are not. This repository documents what was tried, what failed and why, and the one approach that actually held up under a proper train/dev/test split.
