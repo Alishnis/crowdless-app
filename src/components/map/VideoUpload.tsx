@@ -2,8 +2,8 @@ import { useState, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useT } from '../../i18n'
 import { Upload, X, LogIn, LogOut, Users, CheckCircle, AlertCircle, Download } from 'lucide-react'
+import { BACKEND } from '../../services/counters'
 
-const BACKEND = 'http://localhost:8000'
 const POLL_MS  = 1_500
 
 interface JobResult {
