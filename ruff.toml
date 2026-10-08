@@ -1,0 +1,9 @@
+# Linter config for the Python backend. Keeps to the default correctness rules
+# (pyflakes + the critical pycodestyle subset); style-only E702 is ignored
+# because the evaluation scripts deliberately keep counter updates one-per-line.
+target-version = "py311"
+extend-exclude = [".venv", "node_modules", "datasets", "runs", "test_data"]
+
+[lint]
+select = ["E4", "E7", "E9", "F"]
+ignore = ["E702"]

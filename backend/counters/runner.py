@@ -7,18 +7,16 @@ here, so a comparison between two methods measures the methods and nothing else.
 Only method D (head detector + head tracker) is wired in — see git history for
 methods A/B/C (RGB+YOLO+ByteTrack, top-down pose, depth/background blobs),
 which were dropped from the running app once D outperformed all three on the
-dense-queue benchmark (see counting-methods-findings in project memory).
+dense-queue benchmark (see README, "Results").
 """
 from __future__ import annotations
 
-import os
 import tempfile
 import time
 from dataclasses import dataclass, asdict, field
 from typing import Callable
 
 import cv2
-import numpy as np
 
 from .common import CountLine, LineCounter, draw_hud, encode_jpeg
 from .method_head import HeadMethod
