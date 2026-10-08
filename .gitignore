@@ -35,9 +35,11 @@ __pycache__/
 *.pyc
 .venv/
 
-# Secrets — real API keys live here locally, never commit
+# Secrets — real API keys live here locally, never commit.
+# .env.example (placeholders only) is the one tracked exception.
 .env
-.env.local
+.env.*
+!.env.example
 
 # Sample/training footage — vendor demo clips (licensing) + own screen
 # recordings (size, ~600MB total). See README "Data" section for how to
@@ -48,3 +50,14 @@ test_data/
 !benchmarks/
 live_demo/
 out/
+
+# Python tooling caches, local virtualenvs and TypeScript build info
+.pytest_cache/
+.ruff_cache/
+venv/
+*.tsbuildinfo
+
+# Raw PAMELA-UANDES archive extracted at the repo root (research-only licence,
+# ~370MB) — the supported location is test_data/pamela-uandes/
+2008_*_ov_0_800/
+*.tar.gz
