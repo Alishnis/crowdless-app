@@ -68,7 +68,7 @@ flowchart LR
 
 ## Tech stack
 
-- **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4, Framer Motion, react-router-dom, React Query, Leaflet / react-leaflet and Google Maps, react-three-fiber + drei (landing-page globe).
+- **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4, Framer Motion, react-router-dom, React Query, Google Maps (`@react-google-maps/api`), three.js / react-three-fiber + drei (landing-page globe).
 - **Backend**: FastAPI, Uvicorn, OpenCV, Ultralytics (YOLO11), PyTorch (CPU, CUDA or Apple-Silicon MPS auto-detected), `lap` (Hungarian assignment for the tracker).
 - **Quality**: pytest, ruff, ESLint, GitHub Actions.
 
