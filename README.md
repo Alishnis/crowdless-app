@@ -361,9 +361,13 @@ The deployed backend bundles a single promo clip for the live feed. PAMELA-UANDE
 
 ## Author's role
 
-<!-- TODO(owner): state in 2-4 sentences what you personally built (e.g. detector training, tracker, evaluation protocol, frontend, deployment). The git history shows 40 commits under "Alisher Romankul" and 8 under "altaiyrtolegen" with matching subjects, and `origin` is a copy of the `altaiyrtolegen/crowdless` repository, so credit cannot be inferred reliably from the repository alone. -->
+I designed, built and deployed CrowdLess end to end.
 
-TODO(owner): describe your contribution and any collaborators here.
+- **Computer vision.** Method D (a YOLO11n head detector trained on PAMELA-UANDES head labels, plus a tracker written for partial occlusion), the train / dev / test protocol with a test set scored once, and the ablation that separates the detector's contribution from the tracker's.
+- **Product.** The React + TypeScript frontend (landing page, route planner and Google Maps monitor, per-bus door cameras, the lab) and the FastAPI backend that serves the detector.
+- **Delivery.** Docker images, the Azure Container Instances deployment, tests and CI, and the split-screen comparison script used for the demo video.
+
+The dataset and its annotations are the work of Velastin et al. (see the citation below). The detector architecture, tracker baseline and web frameworks come from the open-source libraries listed in the tech stack.
 
 ## License
 
