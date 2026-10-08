@@ -203,6 +203,12 @@ The `/annotate` page decodes a chosen segment into a frame-accurate strip (avoid
   <img src="docs/screenshots/monitor.png" alt="Monitor page: simulated route planner and map" width="850">
 </p>
 
+**Per-bus door cameras.** On `/monitor`, selecting a bus and opening its *Camera* tab shows that bus's own door camera: the annotated frame, an activity chip (*Boarding* / *Alighting*), the Entered / Exited / Now counters and an occupancy bar. Each of the six camera slots replays real PAMELA-UANDES footage through method D (`backend/bus_cams.py`, served by `GET /bus-cam/{slot}`), and the selected bus on the map takes its numbers from the same camera.
+
+- The counts are genuine detections on real footage, not an animation — only the bus positions and the starting occupancy of each bus are simulated.
+- The dataset's clips film people walking in opposite directions across the line, so the playlists alternate *alighting* clips (`A_*`) with *boarding* clips (`B_No_*`). A bus therefore fills and empties instead of only ever filling, and the on-screen footage credit names the clip being shown.
+- These clips are research-only (see [§15](#15-dataset-citation-and-license)) and are never bundled into the Docker image, so this feature needs a local `test_data/pamela-uandes/`. Without it, `/bus-cam` reports that no footage is available and the Camera tab falls back to the shared `/analyze` feed.
+
 ## 9. Getting started
 
 ### Prerequisites
@@ -231,6 +237,12 @@ npm run dev             # http://localhost:5173 (Vite picks the next free port i
 ```
 
 The lab (`/lab`) talks to the backend at a hardcoded `http://localhost:8000` (`src/services/counters.ts`) — keep the backend on that port, or edit the constant.
+
+### Deployment
+
+The app is containerised as two images — `Dockerfile.backend` (FastAPI + the CPU build of PyTorch/Ultralytics) and `Dockerfile.frontend` (the Vite build served by nginx, `nginx.conf`) — and `aci-deploy.yaml` describes them as one Azure Container Instances group (frontend on port 80, backend on 8000). A running instance is available at **http://crowdless-demo.germanywestcentral.azurecontainer.io**, and `GET :8000/health` on the same host reports `{"ok": true, "methods": ["head"], ...}`.
+
+The deployed backend ships with a single bundled promo clip for the live feed. The PAMELA-UANDES dataset is deliberately **not** part of the image (restricted licence — see [§15](#15-dataset-citation-and-license)), which is why the per-bus cameras of [§8](#8-other-surfaces-in-the-app) only run locally.
 
 ### Data
 
@@ -263,6 +275,21 @@ python -m backend.training.eval_head trackers
 python -m backend.training.evaluate --suite
 ```
 
+### Comparison clip for the demo video
+
+`backend/training/make_hook.py` renders a split-screen comparison on one annotated clip: a stock COCO YOLOv8n + ByteTrack counter on the left, method D on the right, both reading the same counting line, with a running ground-truth tally from the dataset's own annotations.
+
+```bash
+# Rank every benchmark clip first, so the clip you show is representative rather than the best one
+python -m backend.training.make_hook --scan --scan-seconds 40 --stock-weights yolov8n.pt
+
+# Render one comparison (--flip swaps which direction counts as IN/OUT)
+python -m backend.training.make_hook --bench benchmarks/a-d800mm-r5_0.0-76.0.json \
+    --start 14 --seconds 14 --stock-weights yolov8n.pt --flip --out out/hook.mp4
+```
+
+The stock detector looks for whole bodies, which a dense overhead doorway hides; on the clip above it counts 1 of 11 people leaving while method D counts 11. The scan shows the same gap on every clip, not just this one. Output goes to `out/` (git-ignored).
+
 ## 11. Project structure
 
 ```text
@@ -270,6 +297,7 @@ backend/
 ├── main.py                     FastAPI app — jobs, samples, benchmarks, live demo endpoint
 ├── bench.py                     CLI for a quick run of method D over a video file
 ├── benchmarks.py                Flat-file (JSON) ground-truth store
+├── bus_cams.py                  Per-bus door cameras: real PAMELA clips replayed through method D
 ├── counters/
 │   ├── runner.py                Shared frame loop + method D's parameter schema
 │   ├── common.py                CountLine, LineCounter, CentroidTracker
@@ -277,7 +305,8 @@ backend/
 └── training/
     ├── import_pamela.py          PAMELA-UANDES CSVs → YOLO labels + ground-truth benchmarks
     ├── build_head_dataset.py     R1–R3 train / R4 dev split for the head detector
-    └── eval_head.py               sweep (tune on R4) / test (score on R5–R8) / trackers (ablation)
+    ├── eval_head.py               sweep (tune on R4) / test (score on R5–R8) / trackers (ablation)
+    └── make_hook.py               Split-screen stock YOLO + ByteTrack vs. method D comparison clip
 
 src/
 ├── pages/
@@ -309,6 +338,8 @@ docs/screenshots/       Images used in this README
 | `GET /job/{id}` · `GET /job/{id}/video` | Poll a running job / download its annotated output |
 | `GET|POST /benchmarks`, `DELETE /benchmarks/{id}` | Ground-truth CRUD used by the annotation tool |
 | `GET /analyze` | Live-demo endpoint cycling through bundled clips (Monitor page) |
+| `GET /bus-cam/{slot}` | One step of a per-bus door camera (slot 0–5): annotated frame, IN/OUT totals, occupancy, boarding/alighting activity. Needs the local dataset |
+| `GET /health` | Liveness check — `{"ok": true, "methods": ["head"], ...}` |
 
 ## 13. Internationalization
 
