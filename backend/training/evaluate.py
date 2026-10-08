@@ -83,7 +83,7 @@ def run_suite(methods: list[str], finetuned: bool, verbose: bool) -> int:
             )
             try:
                 r = run(path, cfg)
-                got_in, got_out = r["in_count"], r["out_count"]
+                got_in = r["in_count"]
             except Exception as exc:
                 print(f"   {m}: ERROR {type(exc).__name__}: {exc}")
                 continue

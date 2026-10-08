@@ -1,11 +1,20 @@
 from fastapi import FastAPI, Response, UploadFile, File, BackgroundTasks, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-import asyncio, cv2, base64, glob, json, numpy as np, threading, uuid, os, tempfile, logging, time
+import asyncio
+import cv2
+import glob
+import json
+import threading
+import uuid
+import os
+import tempfile
+import logging
+import time
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
-from .counters.common import CountLine, LineCounter, Detection, encode_jpeg, is_color_video
+from .counters.common import CountLine, LineCounter, encode_jpeg, is_color_video
 from .counters.method_head import HeadMethod
 from .counters.runner import METHOD_INFO, METHODS, RunConfig, method_info, run
 from . import benchmarks
