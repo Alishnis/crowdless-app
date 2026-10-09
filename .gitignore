@@ -61,3 +61,6 @@ venv/
 # ~370MB) — the supported location is test_data/pamela-uandes/
 2008_*_ov_0_800/
 *.tar.gz
+
+# Staged Hugging Face Space folder (scripts/stage_hf_space.py)
+build/
