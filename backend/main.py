@@ -22,10 +22,24 @@ from .bus_cams import BusCameras
 
 logging.getLogger("ultralytics").setLevel(logging.ERROR)
 
+
+def cors_origins(raw: str | None = None) -> list[str]:
+    """Allowed browser origins, from CORS_ORIGINS (comma-separated).
+
+    Unset or empty keeps the original behaviour (any origin), so nothing
+    changes for local development. In a deployment, set it to the frontend's
+    origin, e.g. "https://crowdless.vercel.app".
+    """
+    if raw is None:
+        raw = os.environ.get("CORS_ORIGINS", "")
+    origins = [o.strip().rstrip("/") for o in raw.split(",") if o.strip()]
+    return origins or ["*"]
+
+
 app = FastAPI(title="CrowdLess Door Counter")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins(),
     allow_methods=["*"],
     allow_headers=["*"],
 )

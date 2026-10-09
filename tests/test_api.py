@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 from backend import benchmarks
 from backend.counters.runner import PARAMS, sanitize_params
-from backend.main import app
+from backend.main import app, cors_origins
 
 client = TestClient(app)
 
@@ -61,3 +61,10 @@ def test_benchmark_roundtrip_derives_totals_from_events(bench_dir):
 
 def test_benchmark_rejects_missing_fields(bench_dir):
     assert "Missing fields" in client.post("/benchmarks", json={"clip": "x"}).json()["error"]
+
+
+def test_cors_origins_default_is_open_and_env_list_is_parsed():
+    assert cors_origins("") == ["*"]
+    assert cors_origins("  ,") == ["*"]
+    assert cors_origins("https://a.vercel.app/, http://localhost:5173") == [
+        "https://a.vercel.app", "http://localhost:5173"]
