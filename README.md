@@ -3,7 +3,7 @@
 **Computer-vision passenger counting for a dense doorway queue: a head detector trained on real annotated ground truth, a tracker built for partial occlusion, and an evaluation protocol with a held-out test set that was touched exactly once.**
 
 <p align="center">
-  <a href="http://crowdless-demo.germanywestcentral.azurecontainer.io"><b>Live demo</b></a>
+  <b>Live demo: TODO(owner)</b> (being moved to free hosting: Hugging Face Spaces + Vercel)
   &nbsp;·&nbsp;
   <a href="#results">Results</a>
   &nbsp;·&nbsp;
@@ -35,7 +35,7 @@ CrowdLess started as an operational question, *how full is this bus right now?*,
 - **Monitor** (`/monitor`) and **Map** (`/map`). Route planner and bus map for a simulated Kyzylorda (Kazakhstan) network. Bus positions and starting occupancy are **simulated**, not live GPS. Each of six per-bus door cameras replays real PAMELA-UANDES footage through method D (needs the local dataset, see [Data](#data)).
 - **Evaluation tooling** (`backend/training/`). Dataset import, train/dev split, tracker grid search on the dev clips, a one-shot test run, and a detector-vs-tracker ablation.
 - **Bilingual UI** (Russian / English) through a small React context (`src/i18n/`); the backend localises API-authored copy via a `lang` query parameter.
-- **Deployable.** Two Docker images and an Azure Container Instances manifest (see [Deployment](#deployment)).
+- **Deployable.** Free-tier setup: backend as a Docker Space on Hugging Face (GitHub Actions deploy), frontend on Vercel. Docker images and a legacy Azure manifest are kept (see [Deployment](#deployment)).
 
 ## Architecture
 
@@ -120,8 +120,9 @@ All variables are optional. Vite inlines `VITE_*` values into the browser bundle
 | `VITE_GOOGLE_MAPS_API_KEY` | frontend (`BusMap.tsx`, `UserPage.tsx`) | Google Maps JavaScript API key for the map views. Public by design, so restrict it by HTTP referrer. | unset: the map shows an "add a key" hint |
 | `PORT` | backend `Dockerfile.backend` | Port uvicorn binds to inside the container. | `8000` |
 | `YOLO_CONFIG_DIR` | backend `Dockerfile.backend` | Writable Ultralytics config directory in the container. | `/tmp/ultralytics` |
+| `CORS_ORIGINS` | backend `main.py` | Comma-separated browser origins allowed to call the API, e.g. `https://my-app.vercel.app`. | unset: any origin (`*`) |
 
-The backend itself reads no other environment variables. CORS is open (`*`) and there is no authentication, which is fine for a demo and not for production.
+The backend reads no other environment variables. CORS is open (`*`) unless `CORS_ORIGINS` is set, and there is no authentication, which is fine for a demo and not for production.
 
 ## Background: why a dense queue breaks the obvious approach
 
@@ -272,19 +273,24 @@ src/                            React + TypeScript SPA
 ├── i18n/                       ru.ts (source of truth) + en.ts
 └── services/                   counters.ts (typed API client), routes, mock data
 
-tests/                          pytest suite (28 tests)
+tests/                          pytest suite (30 tests)
 models/pamela_head.pt           The fine-tuned detector (tracked, ~5 MB)
 benchmarks/                     8 ground-truth segments (tracked JSON): 7 from PAMELA-UANDES, 1 legacy
 docs/screenshots/               Images used in this README
-Dockerfile.backend, Dockerfile.frontend, nginx.conf, aci-deploy.yaml    Containers and Azure deployment
+Dockerfile.backend, Dockerfile.frontend, nginx.conf    Container images (frontend image/nginx.conf are the self-hosted option)
+aci-deploy.yaml                 Legacy Azure Container Instances manifest (no longer used)
+vercel.json                     Vercel config: SPA rewrite + asset caching
+scripts/                        Stages and uploads the backend to a Hugging Face Space
+docs/DEPLOY.md                  Step-by-step free-hosting deployment guide
 .github/workflows/ci.yml        Lint + tests for backend and frontend
+.github/workflows/deploy-hf-space.yml    Deploys the backend to a Hugging Face Space (skips until configured)
 ```
 
 ## Testing
 
 ```bash
 pip install -r backend/requirements.txt -r backend/requirements-dev.txt
-pytest -q          # 28 tests, <1 s, no weights or video needed
+pytest -q          # 30 tests, no weights or video needed
 ruff check .       # Python lint
 npm run lint       # frontend lint (0 errors, 14 warnings)
 npm run build      # type-check + production build
@@ -355,9 +361,16 @@ Interactive docs are served by FastAPI at `/docs`.
 
 ## Deployment
 
-The app is containerised as two images: `Dockerfile.backend` (FastAPI + the CPU build of PyTorch/Ultralytics) and `Dockerfile.frontend` (the Vite build served by nginx, `nginx.conf`). `aci-deploy.yaml` describes them as one Azure Container Instances group (frontend on port 80, backend on 8000). `VITE_API_URL` is baked in at image build time, so rebuild the frontend image when the backend URL changes. A running instance is at **http://crowdless-demo.germanywestcentral.azurecontainer.io**.
+Free-tier setup, no cloud credits needed:
 
-The deployed backend bundles a single promo clip for the live feed. PAMELA-UANDES is deliberately **not** in the image (restricted licence), which is why the per-bus cameras only run locally.
+- **Backend** (`Dockerfile.backend`) runs as a Docker Space on Hugging Face (free CPU). A GitHub Actions workflow (`.github/workflows/deploy-hf-space.yml`) stages the backend with `scripts/stage_hf_space.py` and uploads it on every push to `main` that touches it. It skips cleanly until `HF_SPACE_ID` is configured.
+- **Frontend** is a static Vite build on Vercel (`vercel.json` adds the SPA rewrite). It needs `VITE_API_URL` (the Space URL) and `VITE_GOOGLE_MAPS_API_KEY` (restrict it by HTTP referrer) as build environment variables.
+- **CORS**: set `CORS_ORIGINS` on the Space to the Vercel origin.
+- The Space sleeps after about 48 h of inactivity and wakes in roughly a minute on the next request.
+
+Exact owner steps are in [docs/DEPLOY.md](docs/DEPLOY.md). The deployed backend bundles a single promo clip for the live feed. PAMELA-UANDES is deliberately **not** in the image (restricted licence), which is why the per-bus cameras only run locally.
+
+*Legacy:* `aci-deploy.yaml` and `Dockerfile.frontend` / `nginx.conf` describe the earlier Azure Container Instances deployment (two containers). They are kept for reference and self-hosting but are no longer the supported path.
 
 ## Author's role
 
@@ -365,7 +378,7 @@ I designed, built and deployed CrowdLess end to end.
 
 - **Computer vision.** Method D (a YOLO11n head detector trained on PAMELA-UANDES head labels, plus a tracker written for partial occlusion), the train / dev / test protocol with a test set scored once, and the ablation that separates the detector's contribution from the tracker's.
 - **Product.** The React + TypeScript frontend (landing page, route planner and Google Maps monitor, per-bus door cameras, the lab) and the FastAPI backend that serves the detector.
-- **Delivery.** Docker images, the Azure Container Instances deployment, tests and CI, and the split-screen comparison script used for the demo video.
+- **Delivery.** Docker images, deployment (originally Azure Container Instances, now Hugging Face Spaces + Vercel), tests and CI, and the split-screen comparison script used for the demo video.
 
 The dataset and its annotations are the work of Velastin et al. (see the citation below). The detector architecture, tracker baseline and web frameworks come from the open-source libraries listed in the tech stack.
 
