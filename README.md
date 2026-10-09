@@ -273,7 +273,7 @@ src/                            React + TypeScript SPA
 ├── i18n/                       ru.ts (source of truth) + en.ts
 └── services/                   counters.ts (typed API client), routes, mock data
 
-tests/                          pytest suite (30 tests)
+tests/                          pytest suite (29 tests)
 models/pamela_head.pt           The fine-tuned detector (tracked, ~5 MB)
 benchmarks/                     8 ground-truth segments (tracked JSON): 7 from PAMELA-UANDES, 1 legacy
 docs/screenshots/               Images used in this README
@@ -287,7 +287,7 @@ docs/DEPLOY.md                  How to run it (local run, legacy Azure files)
 
 ```bash
 pip install -r backend/requirements.txt -r backend/requirements-dev.txt
-pytest -q          # 30 tests, no weights or video needed
+pytest -q          # 29 tests, no weights or video needed
 ruff check .       # Python lint
 npm run lint       # frontend lint (0 errors, 14 warnings)
 npm run build      # type-check + production build
