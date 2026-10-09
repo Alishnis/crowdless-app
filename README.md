@@ -3,7 +3,7 @@
 **Computer-vision passenger counting for a dense doorway queue: a head detector trained on real annotated ground truth, a tracker built for partial occlusion, and an evaluation protocol with a held-out test set that was touched exactly once.**
 
 <p align="center">
-  <b>Live demo: offline for now</b> (the Azure student credit that hosted it ran out). <a href="https://youtu.be/KVGqaX-Dgsg">Demo video</a>
+  <b>Live demo: not hosted at the moment.</b> <a href="https://youtu.be/KVGqaX-Dgsg">Demo video</a>
   &nbsp;·&nbsp;
   <a href="#results">Results</a>
   &nbsp;·&nbsp;
@@ -35,7 +35,7 @@ CrowdLess started as an operational question, *how full is this bus right now?*,
 - **Monitor** (`/monitor`) and **Map** (`/map`). Route planner and bus map for a simulated Kyzylorda (Kazakhstan) network. Bus positions and starting occupancy are **simulated**, not live GPS. Each of six per-bus door cameras replays real PAMELA-UANDES footage through method D (needs the local dataset, see [Data](#data)).
 - **Evaluation tooling** (`backend/training/`). Dataset import, train/dev split, tracker grid search on the dev clips, a one-shot test run, and a detector-vs-tracker ablation.
 - **Bilingual UI** (Russian / English) through a small React context (`src/i18n/`); the backend localises API-authored copy via a `lang` query parameter.
-- **Runs locally.** Dockerfiles and a legacy Azure manifest are kept as reference (see [Deployment](#deployment)).
+- **Runs locally.** Dockerfiles are included to show how to containerize it (see [Deployment](#deployment)).
 
 ## Architecture
 
@@ -278,8 +278,7 @@ models/pamela_head.pt           The fine-tuned detector (tracked, ~5 MB)
 benchmarks/                     8 ground-truth segments (tracked JSON): 7 from PAMELA-UANDES, 1 legacy
 docs/screenshots/               Images used in this README
 Dockerfile.backend, Dockerfile.frontend, nginx.conf    Container images (frontend image/nginx.conf are the self-hosted option)
-aci-deploy.yaml                 Legacy Azure Container Instances manifest (no longer used)
-docs/DEPLOY.md                  How to run it (local run, legacy Azure files)
+docs/DEPLOY.md                  How to run it
 .github/workflows/ci.yml        Lint + tests for backend and frontend
 ```
 
@@ -358,9 +357,9 @@ Interactive docs are served by FastAPI at `/docs`.
 
 ## Deployment
 
-The live demo is offline: it ran on Azure on a student credit that has run out, and it is not hosted anywhere else. Watch the [demo video](https://youtu.be/KVGqaX-Dgsg) instead, or run it locally (see [Quick start](#quick-start)).
+The live demo is not hosted at the moment. Watch the [demo video](https://youtu.be/KVGqaX-Dgsg) instead, or run it locally (see [Quick start](#quick-start)).
 
-`aci-deploy.yaml`, `Dockerfile.backend`, `Dockerfile.frontend` and `nginx.conf` describe the former Azure Container Instances deployment. They are kept for reference and self-hosting. See [docs/DEPLOY.md](docs/DEPLOY.md).
+`Dockerfile.backend`, `Dockerfile.frontend` and `nginx.conf` show how to containerize it. See [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## Author's role
 
@@ -368,7 +367,7 @@ I designed, built and deployed CrowdLess end to end.
 
 - **Computer vision.** Method D (a YOLO11n head detector trained on PAMELA-UANDES head labels, plus a tracker written for partial occlusion), the train / dev / test protocol with a test set scored once, and the ablation that separates the detector's contribution from the tracker's.
 - **Product.** The React + TypeScript frontend (landing page, route planner and Google Maps monitor, per-bus door cameras, the lab) and the FastAPI backend that serves the detector.
-- **Delivery.** Docker images, deployment (Azure Container Instances, since taken offline), tests and CI, and the split-screen comparison script used for the demo video.
+- **Delivery.** Docker images, tests and CI, and the split-screen comparison script used for the demo video.
 
 The dataset and its annotations are the work of Velastin et al. (see the citation below). The detector architecture, tracker baseline and web frameworks come from the open-source libraries listed in the tech stack.
 
