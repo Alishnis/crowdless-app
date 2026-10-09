@@ -1,0 +1,39 @@
+name: Deploy backend to Hugging Face Space
+
+# Syncs the FastAPI backend to a Docker Space. Skips (green) until the repo
+# variable HF_SPACE_ID and secret HF_TOKEN are set - see docs/DEPLOY.md.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "models/**"
+      - "Dockerfile.backend"
+      - "live_demo/**"
+      - "scripts/stage_hf_space.py"
+      - "scripts/upload_hf_space.py"
+      - ".github/workflows/deploy-hf-space.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-hf-space
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ vars.HF_SPACE_ID != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Stage the Space folder
+        run: python scripts/stage_hf_space.py build/hf_space
+      - name: Upload to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_ID: ${{ vars.HF_SPACE_ID }}
+        run: |
+          pip install --quiet huggingface_hub
+          python scripts/upload_hf_space.py build/hf_space
