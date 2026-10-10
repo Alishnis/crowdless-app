@@ -3,7 +3,7 @@
 **Computer-vision passenger counting for a dense doorway queue: a head detector trained on real annotated ground truth, a tracker built for partial occlusion, and an evaluation protocol with a held-out test set that was touched exactly once.**
 
 <p align="center">
-  <b>Live demo: offline for now</b> (the Azure student credit that hosted it ran out). <a href="https://youtu.be/KVGqaX-Dgsg">Demo video</a>
+  <b>Live demo (frontend only): TODO(owner)</b>. The detection backend is not hosted; see the demo video: <a href="https://youtu.be/KVGqaX-Dgsg">https://youtu.be/KVGqaX-Dgsg</a>
   &nbsp;·&nbsp;
   <a href="#results">Results</a>
   &nbsp;·&nbsp;
