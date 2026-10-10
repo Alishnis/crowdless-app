@@ -1,6 +1,11 @@
 // Overridable at build time (VITE_API_URL) so a production build can point at
-// a deployed backend instead of localhost; falls back to the dev default.
-export const BACKEND = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+// a deployed backend. In dev it falls back to the local server. A production
+// build without VITE_API_URL has no backend: it targets a reserved, never-
+// resolving host (.invalid, RFC 2606) so requests fail fast and the UI shows
+// its "backend offline" state, instead of probing the visitor's own localhost.
+export const BACKEND =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? 'http://localhost:8000' : 'https://backend-not-hosted.invalid')
 
 export interface ParamOption { value: string | number; label: string }
 
