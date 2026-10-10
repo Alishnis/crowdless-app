@@ -393,7 +393,7 @@ export default function UserPage() {
   const t = useT()
   const navigate = useNavigate()
 
-  const { isLoaded } = useJsApiLoader({
+  const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: API_KEY,
   })
@@ -598,6 +598,14 @@ export default function UserPage() {
   const hasRoute = !!activeMatch && !!fromPoint && !!toPoint
   const step = navSteps[currentStep]
   const isLastStep = currentStep === navSteps.length - 1
+
+  if (loadError) {
+    return (
+      <div className="w-screen h-screen bg-[#1a2332] flex items-center justify-center">
+        <p className="text-red-400 text-sm font-mono">{t('map.loadError')}</p>
+      </div>
+    )
+  }
 
   if (!isLoaded) {
     return (
