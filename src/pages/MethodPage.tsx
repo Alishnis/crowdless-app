@@ -20,6 +20,7 @@ export default function MethodPage() {
   const { methodId = '' } = useParams()
   const [methods, setMethods] = useState<MethodInfo[]>([])
   const [extra,   setExtra]   = useState<ParamValues>({})
+  const [offline, setOffline] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const src = useLabSource()
@@ -32,7 +33,9 @@ export default function MethodPage() {
   )
 
   useEffect(() => {
-    fetchMethods(lang).then(setMethods).catch(() => setMethods([]))
+    fetchMethods(lang)
+      .then(m => { setMethods(m); setOffline(false) })
+      .catch(() => { setMethods([]); setOffline(true) })
   }, [lang])
 
   // Knob values follow the backend schema, and reset when switching method
@@ -63,8 +66,15 @@ export default function MethodPage() {
 
   if (!info) {
     return (
-      <div className="min-h-screen bg-background grid place-items-center text-sm text-muted-foreground">
-        {methods.length ? t('method.notFoundX', { id: methodId ?? '' }) : t('method.loading')}
+      <div className="min-h-screen bg-background grid place-items-center px-6 text-center text-sm text-muted-foreground">
+        {offline ? (
+          <div className="max-w-md space-y-3">
+            <p className="font-mono text-red-700">{t('lab.backendDown')}</p>
+            <Link to="/lab" className="inline-flex items-center gap-1.5 text-[11px] hover:text-accent transition-colors">
+              <ArrowLeft size={12} /> {t('method.back')}
+            </Link>
+          </div>
+        ) : methods.length ? t('method.notFoundX', { id: methodId ?? '' }) : t('method.loading')}
       </div>
     )
   }

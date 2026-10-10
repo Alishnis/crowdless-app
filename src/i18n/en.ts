@@ -58,7 +58,7 @@ export const en: Record<string, string> = {
   'lab.label':        'Method lab',
   'lab.title':        'Counting passengers in a dense queue',
   'lab.lead':         "A head detector trained on PAMELA-UANDES's real labels, paired with a tracker built to hold a person's id through partial occlusion in a queue — where an ordinary body detector and box tracker lose count.",
-  'lab.backendDown':  'Backend unreachable — start it with: uvicorn backend.main:app --port 8000',
+  'lab.backendDown':  'Backend offline: the detection service is not hosted; see the demo video. To run it locally: uvicorn backend.main:app --port 8000',
   'lab.pickVideo':    'Pick a video first',
 
   // ── Lab: source ───────────────────────────────────────────────────────────
