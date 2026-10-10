@@ -1,6 +1,6 @@
 # Running it
 
-There is no live deployment right now. The former Azure live demo was taken offline when the student credit that paid for it ran out. A recorded walkthrough is on YouTube: <https://youtu.be/KVGqaX-Dgsg>.
+There is no live backend deployment right now (the previous hosted demo was taken offline). Only the frontend is deployed, see below. A recorded walkthrough is on YouTube: <https://youtu.be/KVGqaX-Dgsg>.
 
 ## Run locally
 
@@ -30,9 +30,9 @@ Only the static React/Vite frontend is deployed; the YOLO detection backend is i
 3. Leave `VITE_API_URL` unset. There is no backend to point at.
 4. Deploy. Redeploy after changing any `VITE_` variable, because Vite inlines them at build time.
 
-## Legacy files (former Azure deployment)
+## Legacy deployment files
 
-`aci-deploy.yaml` (Azure Container Instances manifest), `Dockerfile.backend`, `Dockerfile.frontend` and `nginx.conf` were used for the former Azure deployment. They are kept as reference and are not maintained as a supported deployment path. Both Dockerfiles can still be built with `docker build -f <Dockerfile> .` if you want to self-host.
+`aci-deploy.yaml` (a container-group manifest), `Dockerfile.backend`, `Dockerfile.frontend` and `nginx.conf` were used for the former hosted deployment. They are kept as reference and are not maintained as a supported deployment path. Both Dockerfiles can still be built with `docker build -f <Dockerfile> .` if you want to self-host.
 
 The backend Dockerfile copies a `live_demo/` folder, which is git-ignored, so create it (with one short clip) before building.
 
