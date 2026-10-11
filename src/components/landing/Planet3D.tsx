@@ -5,9 +5,9 @@ import * as THREE from 'three'
 function EarthMesh() {
   const meshRef = useRef<THREE.Mesh>(null!)
   const [colorMap, normalMap, specularMap] = useLoader(THREE.TextureLoader, [
-    '/textures/earth.jpg',
-    '/textures/earth_normal.jpg',
-    '/textures/earth_specular.jpg',
+    `${import.meta.env.BASE_URL}textures/earth.jpg`,
+    `${import.meta.env.BASE_URL}textures/earth_normal.jpg`,
+    `${import.meta.env.BASE_URL}textures/earth_specular.jpg`,
   ])
 
   useFrame((_, delta) => {
