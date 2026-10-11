@@ -3,7 +3,7 @@
 **Computer-vision passenger counting for a dense doorway queue: a head detector trained on real annotated ground truth, a tracker built for partial occlusion, and an evaluation protocol with a held-out test set that was touched exactly once.**
 
 <p align="center">
-  <b>Live demo (frontend only): TODO(owner)</b>. The detection backend is not hosted; see the demo video: <a href="https://youtu.be/KVGqaX-Dgsg">https://youtu.be/KVGqaX-Dgsg</a>
+  <b>Live demo (frontend only): <a href="https://alishnis.github.io/crowdless-app/">alishnis.github.io/crowdless-app</a></b>. The detection backend is not hosted, so the lab and camera pages show a "Backend offline" notice; see the demo video: <a href="https://youtu.be/KVGqaX-Dgsg">https://youtu.be/KVGqaX-Dgsg</a>
   &nbsp;·&nbsp;
   <a href="#results">Results</a>
   &nbsp;·&nbsp;
